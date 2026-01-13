@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         proxy: {
+          // 만약 백엔드 엔드포인트가 '/equipment'라면 직접 등록도 가능합니다.
           '/equipment': {
             target: 'http://localhost:8080',
             changeOrigin: true,

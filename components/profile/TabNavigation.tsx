@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
-import { ExternalLink, Bookmark, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const TabNavigation = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => {
-    const tabs = ['전투', '스킬', '아크 패시브', '내실', '아바타', '통계', '캐릭터', '길드'];
+    const tabs = ['전투', '스킬', '아크 패시브', '캐릭터', '길드'];
 
     // 회전 상태 관리를 위한 state
     const [isRotating, setIsRotating] = useState(false);
+    const navigate = useNavigate();
+
+    const goToSimulator = () => {
+        // 이동하고자 하는 정확한 경로로 수정하세요 (예: '/simulator' 또는 '/sim')
+        navigate('/simulatorPage');
+    };
 
     const handleUpdateClick = () => {
         if (isRotating) return; // 이미 회전 중이면 중복 실행 방지
@@ -40,11 +47,27 @@ export const TabNavigation = ({ activeTab, setActiveTab }: { activeTab: string, 
             <div className="flex-1" />
 
             <div className="flex gap-2 pr-2">
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <ExternalLink size={16} />
-                </button>
-                <button className="p-2 text-zinc-400 hover:text-zinc-300">
-                    <Bookmark size={16} />
+
+                <button                     
+                    onClick={goToSimulator}
+                    className="
+                    /* 레이아웃 & 정렬 */
+        flex items-center justify-center gap-2
+        px-4 py-1.5
+
+        /* 기본 색상 & 텍스트 */
+        bg-zinc-100 text-zinc-950
+        text-[14px] font-bold
+        rounded-lg
+
+        /* 효과 & 애니메이션 */
+        transition-all duration-200 shadow-md
+        hover:bg-[#7C3AED] hover:text-white
+        active:scale-95"
+                    >
+                    <span>
+                        시뮬레이터 전환
+                    </span>
                 </button>
 
                 <button
