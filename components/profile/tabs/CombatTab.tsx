@@ -3,6 +3,7 @@ import {Loader2, Hexagon, ShieldAlert, Zap} from 'lucide-react';
 import EquipmentTooltip from "@/components/profile/Tooltip/EquipmentTooltip.tsx";
 import AccessoryTooltip from '@/components/profile/Tooltip/AccessoryTooltip.tsx';
 import ArkCoreTooltip from '@/components/profile/Tooltip/ArkCoreTooltip.tsx';
+import engravingIconMap from "./engravingsIdTable.json";
 
 /* ================= 인터페이스 ================= */
 // --장비 인터페이스
@@ -59,6 +60,25 @@ interface CardData {
     Effects: CardEffect[];
 }
 
+/* ✅ 아크 패시브 각인(우측 “활성 각인 (아크 패시브)”에 쓰는 데이터) */
+type ArkPassiveEffect = {
+    Name: string;
+    Description?: string;
+    Icon?: string; // 있으면 사용
+    Level?: number; // 각인서 활성 단계(0~4)
+    AbilityStoneLevel?: number; // 스톤 추가 활성(0~4)
+    AbilityStoneIcon?: string; // 있으면 사용
+};
+
+type EngravingsResponse = {
+    ArkPassiveEffects?: ArkPassiveEffect[];
+};
+
+/** 어빌리티 스톤 아이콘: 데이터에 없으면 이걸로 대체 */
+const FALLBACK_ABILITY_STONE_ICON =
+    'https://cdn-lostark.game.onstove.com/efui_iconatlas/use/use_7_206.png';
+
+
 /* ================= 컴포넌트 ================= */
 export const CombatTab = ({ character }: { character: any }) => {
     const [equipments, setEquipments] = useState<Equipment[]>([]);
@@ -79,6 +99,18 @@ export const CombatTab = ({ character }: { character: any }) => {
     const [arkCoreHoverIdx, setArkCoreHoverIdx] = React.useState<any>(null);
     const [arkCoreHoverData, setArkCoreHoverData] = React.useState<any>(null);
 
+    const normalizeEngravingName = (name: string) => {
+        return (name || "")
+            .replace(/\[[^\]]*]/g, "")     // [강화] 같은거 제거
+            .replace(/\([^)]*\)/g, "")     // (중력 해방) 같은거 제거
+            .replace(/\s+/g, " ")
+            .trim();
+    };
+
+    const getEngravingIconUrl = (name: string) => {
+        const key = normalizeEngravingName(name);
+        return (engravingIconMap as Record<string, string>)[key] || "";
+    };
 
     const cleanText = (text: string) =>
         text ? text.replace(/<[^>]*>?/gm, '').trim() : '';
@@ -761,27 +793,51 @@ export const CombatTab = ({ character }: { character: any }) => {
 
 
 
-                {/* 3. 활성 각인 (수치형 디자인) */}
+                {/* ✅ 여기만 교체됨: 활성 각인 (아크 패시브) 1열 N행 */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 text-white">
                         <h2 className="text-xl font-bold">활성 각인 (아크 패시브)</h2>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {engravings?.ArkPassiveEffects?.map((eng: any, i: number) => {
-                            const match = eng.Description.match(/[\d.]+%+/);
-                            const percentValue = match ? match[0] : "";
+
+                    {/* ✅ 1열로 고정 + 기존 섹션 크기 유지(외곽은 그대로, 내부만 1열 row) */}
+                    <div className="grid grid-cols-1 gap-3">
+                        {(engravings?.ArkPassiveEffects ?? []).map((eng, i) => {
+                            const n = typeof eng.Level === 'number' ? eng.Level : 0; // 각인서 활성 단계(4단계 등)
+                            const m = typeof eng.AbilityStoneLevel === 'number' ? eng.AbilityStoneLevel : 0; // 스톤 추가 Lv.m
+
+                            const iconUrl = getEngravingIconUrl(eng.Name);
+                            const stoneIcon = eng.AbilityStoneIcon || FALLBACK_ABILITY_STONE_ICON;
+
                             return (
-                                <div key={i} className="bg-[#181818] p-4 rounded border border-white/5">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-zinc-100 font-bold">{eng.Name}</span>
-                                                <span className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-1 rounded">Lv.{eng.AbilityStoneLevel}</span>
-                                            </div>
-                                            {eng.AbilityStoneLevel && <p className="text-[11px] text-zinc-500 mt-1 italic">스톤: {eng.Level}단계</p>}
+                                <div key={i} className="flex items-center justify-between bg-[#181818] px-3 py-2 rounded border border-white/5">
+                                    {/* LEFT: 각인 아이콘 + (각인서 단계 n단계) + 이름 + (스톤 있으면) 스톤아이콘+Lv.m */}
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        {/* 각인 아이콘 */}
+                                        <div className="w-7 h-7 shrink-0 rounded overflow-hidden bg-black/30 border border-white/10">
+                                            {iconUrl ? (
+                                                <img src={iconUrl} alt={eng.Name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full" />
+                                            )}
                                         </div>
-                                        <span className="text-lg font-black text-yellow-500">{percentValue}</span>
+
+                                        {/* 각인서 활성 단계: "4단계" (이게 이름 앞에 들어가야 함) */}
+                                        <span className="text-[12px] font-black text-white/90 shrink-0">{n}단계</span>
+
+                                        {/* 각인명 */}
+                                        <span className="text-zinc-100 font-semibold truncate">{eng.Name}</span>
+
+                                        {/* 스톤 추가 활성: 스톤 아이콘 + Lv.m */}
+                                        {m > 0 && (
+                                            <span className="inline-flex items-center gap-1 shrink-0">
+                        <img src={stoneIcon} alt="Ability Stone" className="w-4 h-4" />
+                        <span className="text-[12px] font-black text-sky-400">Lv.{m}</span>
+                      </span>
+                                        )}
                                     </div>
+
+                                    {/* RIGHT는 비워둠(이미지 예시처럼 우측에 아무것도 안두려면) */}
+                                    <div className="shrink-0" />
                                 </div>
                             );
                         })}
