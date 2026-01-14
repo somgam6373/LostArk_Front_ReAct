@@ -1,553 +1,666 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { CharacterInfo } from '../../types.ts';
-import {
-    BarChart3, Zap, Shield, Sword, Activity,
-    Heart, Sparkles, Star, Gem,
-    RefreshCw, User, Shirt, ChevronDown, Swords, Wand2 , Flame
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Loader2, Search, ShieldAlert } from "lucide-react";
 
-// ---------------------- utils ----------------------
+import EquipmentTooltip from "@/components/profile/Tooltip/EquipmentTooltip.tsx";
+import AccessoryTooltip from "@/components/profile/Tooltip/AccessoryTooltip.tsx";
+import ArkCoreTooltip from "@/components/profile/Tooltip/ArkCoreTooltip.tsx";
+import JewelryTooltip from "@/components/profile/Tooltip/JewelryTooltip.tsx";
+import engravingIconMap from "./engravingsIdTable.json"; // 경로는 너 프로젝트에 맞게 조정
+import { CharacterInfo } from "../../types.ts";
 
-const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
-
-const toIntSafe = (v: any, fallback: number) => {
-    const n = typeof v === 'number' ? v : parseInt(String(v), 10);
-    return Number.isFinite(n) ? n : fallback;
+/** ✅ 아크 패시브 각인(우측 “활성 각인 (아크 패시브)”에 쓰는 데이터) */
+type ArkPassiveEffect = {
+    Name: string;
+    Description?: string;
+    Icon?: string;
+    Level?: number; // 각인서 활성 단계(0~4)
+    AbilityStoneLevel?: number; // 스톤 추가 활성(0~4)
+    AbilityStoneIcon?: string;
 };
 
-const toFloatSafe = (v: any, fallback: number) => {
-    const n = typeof v === 'number' ? v : parseFloat(String(v));
-    return Number.isFinite(n) ? n : fallback;
+const FALLBACK_ABILITY_STONE_ICON =
+    "https://cdn-lostark.game.onstove.com/efui_iconatlas/use/use_7_206.png";
+
+/* ---------------------- Interfaces (CombatTab에서 필요한 것만) ---------------------- */
+interface Equipment {
+    Type: string;
+    Name: string;
+    Icon: string;
+    Grade: string;
+    Tooltip: string;
+}
+
+interface ArkEffect {
+    Name: string;
+    Level: number;
+    Tooltip: string;
+}
+
+interface ArkSlot {
+    Index: number;
+    Icon: string;
+    Name: string;
+    Point: number;
+    Grade: string;
+    Tooltip: string | object;
+    Gems?: any[];
+}
+
+interface ArkCoreData {
+    Slots: ArkSlot[];
+    Effects: ArkEffect[];
+}
+
+/* ---------------------- Utils ---------------------- */
+const cleanText = (text: any): string => {
+    if (!text) return "";
+    if (typeof text === "string") return text.replace(/<[^>]*>?/gm, "").trim();
+    if (typeof text === "object" && typeof text.Text === "string") return cleanText(text.Text);
+    return "";
 };
 
-const deepClone = <T,>(obj: T): T => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sc = (globalThis as any).structuredClone;
-    if (typeof sc === 'function') return sc(obj);
-    return JSON.parse(JSON.stringify(obj));
+const normalizeEngravingName = (name: string) => {
+    return (name || "")
+        .replace(/\[[^\]]*]/g, "") // [강화] 제거
+        .replace(/\([^)]*\)/g, "") // (중력 해방) 제거
+        .replace(/\s+/g, " ")
+        .trim();
 };
 
-const gemOptions = [
-    ...Array.from({ length: 10 }, (_, i) => ({ key: `hong_${i + 1}`, label: `${i + 1}레벨 홍염` })),
-    ...Array.from({ length: 10 }, (_, i) => ({ key: `jak_${i + 1}`, label: `${i + 1}레벨 작열` })),
-    ...Array.from({ length: 10 }, (_, i) => ({ key: `mel_${i + 1}`, label: `${i + 1}레벨 멸화` })),
-    ...Array.from({ length: 10 }, (_, i) => ({ key: `gap_${i + 1}`, label: `${i + 1}레벨 겁화` })),
-];
+const getEngravingIconUrl = (name: string) => {
+    const key = normalizeEngravingName(name);
+    return (engravingIconMap as Record<string, string>)[key] || "";
+};
 
+const getQualityColor = (q: number) => {
+    if (q === 100) return "text-[#FF8000] border-[#FF8000]";
+    if (q >= 90) return "text-[#CE43FB] border-[#CE43FB]";
+    if (q >= 70) return "text-[#00B0FA] border-[#00B0FA]";
+    if (q >= 30) return "text-[#00D100] border-[#00D100]";
+    return "text-[#FF4040] border-[#FF4040]";
+};
 
-// ---------------------- Internal Helper Components ----------------------
+/* ---------------------- Gem Slot (보석 UI) ---------------------- */
+const GemSlot = ({
+                     gem,
+                     index,
+                     hoverIdx,
+                     hoverData,
+                     setHoverIdx,
+                     setHoverData,
+                     isCenter = false,
+                 }: any) => {
+    const sizeClasses = isCenter ? "w-22 h-22" : "w-[76px] h-[76px]";
+    if (!gem) return <div className={`${sizeClasses} rounded-full bg-white/5 opacity-10`} />;
 
-const EditableField = ({
-                           label,
-                           value,
-                           onChange,
-                           type = "number",
-                           suffix = "",
-                           min,
-                           max,
-                           step,
-                       }: any) => (
-    <div className="flex justify-between items-center border-b border-zinc-900/50 pb-3 group">
-        <span className="text-[13px] text-zinc-500 font-bold uppercase tracking-wider">{label}</span>
-        <div className="flex items-center gap-2">
-            <input
-                type={type}
-                value={value}
-                min={min}
-                max={max}
-                step={step}
-                onChange={(e) => onChange(e.target.value)}
-                className="bg-transparent text-right text-lg font-black text-zinc-100 outline-none w-24 focus:text-indigo-400 transition-colors"
-            />
-            {suffix && <span className="text-[11px] font-bold text-zinc-600">{suffix}</span>}
-        </div>
-    </div>
-);
+    let skillIcon = gem.Icon;
+    let gemThemeColor = "#ffffff";
 
-const SectionCard = ({ title, icon: Icon, children, accent = "text-indigo-400" }: any) => (
-    <div className="bg-surface/50 p-6 rounded-[2rem] border border-zinc-900/50 relative group shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
-            <div className={`p-2 rounded-lg bg-zinc-900 border border-zinc-800 ${accent}`}>
-                <Icon size={18} />
-            </div>
-            <h4 className="text-[15px] font-black text-zinc-100 uppercase tracking-widest">{title}</h4>
-        </div>
-        <div className="space-y-4">{children}</div>
-    </div>
-);
+    try {
+        if (gem.Tooltip) {
+            const tooltip = JSON.parse(gem.Tooltip);
+            skillIcon = tooltip.Element_001?.value?.slotData?.iconPath || gem.Icon;
+            const gradeName = tooltip.Element_001?.value?.leftStr0 || gem.Grade || "";
 
-const SectionHeader = ({
-                           title,
-                           icon: Icon,
-                           right,
-                           accentColor = "text-zinc-500",
-                       }: { title: string; icon?: any; right?: React.ReactNode; accentColor?: string }) => (
-    <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-2">
-        <div className="flex items-center gap-2.5">
-            {Icon && <Icon size={16} className={accentColor} />}
-            <h3 className="text-[12px] font-black text-zinc-400 uppercase tracking-widest">{title}</h3>
-        </div>
-        {right}
-    </div>
-);
-
-// ---------------------- Gem helpers ----------------------
-
-type GemType = '멸화' | '홍염' | '작열' | '겁화';
-
-const gemStyle = (t: GemType) => {
-    switch (t) {
-        case '멸화':
-            return 'bg-red-500/10 border-red-500/20 text-red-200';
-        case '홍염':
-            return 'bg-blue-500/10 border-blue-500/20 text-blue-200';
-        case '작열':
-            return 'bg-amber-500/10 border-amber-500/20 text-amber-200';
-        case '겁화':
-            return 'bg-purple-500/10 border-purple-500/20 text-purple-200';
-        default:
-            return 'bg-zinc-900 border-zinc-800 text-white';
+            if (gradeName.includes("고대")) gemThemeColor = "#dcc999";
+            else if (gradeName.includes("유물")) gemThemeColor = "#fa5d00";
+            else if (gradeName.includes("전설")) gemThemeColor = "#f9ba2e";
+        }
+    } catch (e) {
+        skillIcon = gem.Icon;
     }
-};
-
-const updateGem = (index: number, key: string) => {
-    setChar((prev: any) => {
-        const next = [...prev.gems];
-        next[index] = { ...next[index], key };
-        return { ...prev, gems: next };
-    });
-};
-
-
-const normalizeGemsTo11 = (gems: any[] | undefined) => {
-    const safe = Array.isArray(gems) ? gems.slice(0, 11) : [];
-    while (safe.length < 11) safe.push({ type: '홍염', level: 1 });
-    return safe.map((g) => ({
-        type: (g?.type ?? '홍염') as GemType,
-        level: clamp(toIntSafe(g?.level, 1), 1, 10),
-    }));
-};
-
-type GemOptionValue = `${GemType}-${number}`;
-
-const GEM_DROPDOWN_OPTIONS: { label: string; value: GemOptionValue; type: GemType; level: number }[] = [
-    ...Array.from({ length: 10 }, (_, i) => ({ type: '홍염' as const, level: i + 1 })),
-    ...Array.from({ length: 10 }, (_, i) => ({ type: '작열' as const, level: i + 1 })),
-    ...Array.from({ length: 10 }, (_, i) => ({ type: '멸화' as const, level: i + 1 })),
-    ...Array.from({ length: 10 }, (_, i) => ({ type: '겁화' as const, level: i + 1 })),
-].map((x) => ({
-    ...x,
-    label: `${x.level}레벨 ${x.type}`,
-    value: `${x.type}-${x.level}` as GemOptionValue,
-}));
-
-const toGemOptionValue = (g: { type: GemType; level: number }): GemOptionValue =>
-    `${g.type}-${clamp(g.level, 1, 10)}` as GemOptionValue;
-
-const parseGemOptionValue = (v: string): { type: GemType; level: number } | null => {
-    const [typeRaw, levelRaw] = v.split('-');
-    const type = typeRaw as GemType;
-    const level = toIntSafe(levelRaw, 1);
-    if (!['홍염', '작열', '멸화', '겁화'].includes(type)) return null;
-    return { type, level: clamp(level, 1, 10) };
-};
-
-// ---------------------- Gear helpers ----------------------
-
-const GEAR_SLOTS = ['머리', '어깨', '상의', '하의', '장갑', '무기'] as const;
-
-const normalizeGear = (gear: any[] | undefined) => {
-    const bySlot = new Map<string, any>();
-    (Array.isArray(gear) ? gear : []).forEach((g) => {
-        if (g?.slot) bySlot.set(String(g.slot), g);
-    });
-
-    return GEAR_SLOTS.map((slot) => {
-        const src = bySlot.get(slot) ?? { slot };
-        return {
-            slot,
-            quality: clamp(toIntSafe(src.quality, 0), 0, 100),
-            normalRefine: clamp(toIntSafe(src.normalRefine ?? src.normal ?? src.refine, 1), 1, 25),
-            advancedRefine: clamp(toIntSafe(src.advancedRefine ?? src.advanced ?? src.transLevel, 0), 0, 40),
-            trans: src.trans ?? '',
-        };
-    });
-};
-
-// ---------------------- Main Simulator Component ----------------------
-
-export const Simulator: React.FC<{ character: CharacterInfo }> = ({ character: initialCharacter }) => {
-    const [subTab, setSubTab] = useState<'info' | 'synergy' | 'results'>('info');
-
-    const initialNormalizedChar = useMemo(() => {
-        const c: any = deepClone(initialCharacter);
-        c.gems = normalizeGemsTo11(c.gems);
-        c.gear = normalizeGear(c.gear);
-        return c as CharacterInfo;
-    }, [initialCharacter]);
-
-    const [char, setChar] = useState<CharacterInfo>(initialNormalizedChar);
-    const [selectedSkillIndex, setSelectedSkillIndex] = useState(0);
-    const [selectedGemIndex, setSelectedGemIndex] = useState<number>(0);
-
-    useEffect(() => {
-        setChar(initialNormalizedChar);
-        setSelectedSkillIndex(0);
-        setSelectedGemIndex(0);
-    }, [initialNormalizedChar]);
-
-    const updateChar = (path: string, value: any) => {
-        setChar((prev) => {
-            const next: any = deepClone(prev);
-            const keys = path.split('.');
-            let current: any = next;
-            for (let i = 0; i < keys.length - 1; i++) current = current[keys[i]];
-            current[keys[keys.length - 1]] = value;
-            return next;
-        });
-    };
-
-    const updateGear = (slot: string, patch: Partial<any>) => {
-        setChar((prev) => {
-            const next: any = deepClone(prev);
-            next.gear = (next.gear ?? []).map((g: any) => (g.slot === slot ? { ...g, ...patch } : g));
-            return next;
-        });
-    };
-
-    const updateGem = (index: number, patch: Partial<any>) => {
-        setChar((prev) => {
-            const next: any = deepClone(prev);
-            const gems = normalizeGemsTo11(next.gems);
-            gems[index] = { ...gems[index], ...patch };
-            next.gems = gems;
-            return next;
-        });
-    };
-
-    const selectedSkill = (char as any).skills?.[selectedSkillIndex] ?? { name: '', level: 0, damageContribution: 0 };
 
     return (
-        <div className="space-y-8">
-            {/* Simulation Top Bar */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
-                    {['데미지 비교', 'DPS 비교', '버프 비교'].map((tab, idx) => (
-                        <button
-                            key={tab}
-                            className={`px-6 py-2.5 rounded-lg text-[13px] font-black tracking-widest transition-all ${
-                                idx === 0 ? 'bg-zinc-800 text-white shadow-md' : 'text-zinc-500 hover:text-zinc-300'
-                            }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                </div>
-                <button className="h-12 px-8 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-500 transition-all shadow-lg flex items-center gap-2">
-                    <RefreshCw size={18} /> 시뮬레이션 실행
-                </button>
-            </div>
-
-            {/* Sub-Tabs Nav */}
-            <div className="flex gap-10 border-b border-zinc-900 px-4">
-                {[
-                    { id: 'info', label: '캐릭터 정보 세팅', icon: User },
-                    { id: 'synergy', label: '시너지/버프 설정', icon: Zap },
-                    { id: 'results', label: '데미지 분석 결과', icon: BarChart3 },
-                ].map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setSubTab(tab.id as any)}
-                        className={`flex items-center gap-2.5 pb-5 text-[15px] font-black transition-all relative ${
-                            subTab === tab.id ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'
-                        }`}
-                    >
-                        <tab.icon size={18} />
-                        {tab.label}
-                        {subTab === tab.id && (
-                            <motion.div layoutId="simNav" className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-indigo-500" />
-                        )}
-                    </button>
-                ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={subTab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="pt-6 pb-20"
+        <div
+            className="relative group flex flex-col items-center gap-2"
+            onMouseLeave={() => {
+                setHoverIdx(null);
+                setHoverData(null);
+            }}
+        >
+            <div
+                className="flex flex-col items-center cursor-help"
+                onMouseEnter={() => {
+                    setHoverIdx(index);
+                    setHoverData(gem);
+                }}
+            >
+                <div
+                    className={`${sizeClasses} rounded-full transition-all duration-300 group-hover:scale-110 flex items-center justify-center overflow-hidden border`}
+                    style={{
+                        background: `linear-gradient(180deg, ${gemThemeColor}15 0%, #07090c 100%)`,
+                        borderColor: `${gemThemeColor}55`,
+                        boxShadow: `
+              inset 0 0 40px rgba(0,0,0,0.9),
+              inset 0 0 100px rgba(0,0,0,0.8),
+              0 0 15px ${gemThemeColor}33
+            `,
+                    }}
                 >
-                    {subTab === 'info' && (
-                        <div className="space-y-8">
+                    <img
+                        src={skillIcon}
+                        alt=""
+                        className="w-full h-full object-cover scale-110 drop-shadow-[0_0_10px_rgba(0,0,0,0.8)]"
+                    />
+                </div>
 
-                            {/* 1행: 캐릭터 내실/펫 (FULL) */}
-                            <SectionCard title="캐릭터 내실 / 펫" icon={Heart} accent="text-red-400">
-                                {/* 기존 내실/펫 + 기본스탯 내용 */}
-                                <div className="space-y-3">
-                                    <EditableField
-                                        label="아이템 레벨"
-                                        value={char.itemLevel}
-                                        onChange={(v: any) => updateChar('itemLevel', clamp(parseFloat(v), 0, 1750))}
-                                    />
-                                    <EditableField
-                                        label="전투 레벨"
-                                        value={char.battleLevel}
-                                        onChange={(v: any) => updateChar('battleLevel', clamp(parseInt(v), 10, 70))}
-                                    />
-                                    <EditableField
-                                        label="원정대 레벨"
-                                        value={char.expeditionLevel}
-                                        onChange={(v: any) => updateChar('expeditionLevel', clamp(parseInt(v), 1, 400))}
-                                    />
-
-                                    <div className="pt-6">
-                                        <SectionHeader title="기본 스탯" icon={Activity} />
-                                        <EditableField label="치명" value={char.innerStats.crit} onChange={(v: any) => updateChar('innerStats.crit', parseInt(v))} />
-                                        <EditableField label="특화" value={char.innerStats.specialization} onChange={(v: any) => updateChar('innerStats.specialization', parseInt(v))} />
-                                        <EditableField label="신속" value={char.innerStats.swiftness} onChange={(v: any) => updateChar('innerStats.swiftness', parseInt(v))} />
-                                    </div>
-                                </div>
-                            </SectionCard>
-
-                            {/* 2행: 장비 (FULL) */}
-                            <SectionCard title="장비 (Gear)" icon={Shield} accent="text-orange-400">
-                                {/* ✅ 너가 지금까지 확정한 장비 카드(침범 방지 버전) */}
-                                <div className="space-y-3">
-                                    {(char as any).gear?.map((item: any, idx: number) => (
-                                        <div
-                                            key={idx}
-                                            className="bg-zinc-900/40 p-4 rounded-xl border border-zinc-800/50 w-full overflow-hidden"
-                                        >
-                                            <div className="flex items-center gap-6 w-full min-w-0">
-                                                {/* LEFT */}
-                                                <div className="flex items-center gap-4 shrink-0">
-                                                    <div className="w-9 h-9 bg-zinc-800 rounded-lg flex items-center justify-center text-[12px] font-black text-white border border-zinc-700">
-                                                        {item.normalRefine}
-                                                    </div>
-
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[15px] font-bold text-zinc-300">{item.slot}</span>
-
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-[10px] font-black text-zinc-600 uppercase">일반</span>
-                                                            <input
-                                                                type="number"
-                                                                min={1}
-                                                                max={25}
-                                                                value={item.normalRefine}
-                                                                onChange={(e) =>
-                                                                    updateGear(item.slot, {
-                                                                        normalRefine: clamp(toIntSafe(e.target.value, item.normalRefine), 1, 25),
-                                                                    })
-                                                                }
-                                                                className="bg-transparent text-zinc-200 font-black text-[12px] outline-none w-12 text-center border border-zinc-800 rounded-md py-1"
-                                                            />
-
-                                                            <span className="text-[10px] font-black text-zinc-600 uppercase ml-2">상급</span>
-                                                            <input
-                                                                type="number"
-                                                                min={0}
-                                                                max={40}
-                                                                value={item.advancedRefine}
-                                                                onChange={(e) =>
-                                                                    updateGear(item.slot, {
-                                                                        advancedRefine: clamp(toIntSafe(e.target.value, item.advancedRefine), 0, 40),
-                                                                    })
-                                                                }
-                                                                className="bg-transparent text-zinc-200 font-black text-[12px] outline-none w-12 text-center border border-zinc-800 rounded-md py-1"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* RIGHT */}
-                                                <div className="flex-1 min-w-0 flex items-center justify-end gap-4">
-                                                    <div className="flex items-center gap-3 shrink-0">
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={100}
-                                                            value={item.quality}
-                                                            onChange={(e) =>
-                                                                updateGear(item.slot, {
-                                                                    quality: clamp(toIntSafe(e.target.value, item.quality), 0, 100),
-                                                                })
-                                                            }
-                                                            className="bg-transparent text-right text-lg font-black text-orange-400 outline-none w-16"
-                                                        />
-                                                        <span className="text-[10px] font-bold text-zinc-600 uppercase">품질</span>
-                                                    </div>
-
-                                                    <input
-                                                        type="range"
-                                                        min={0}
-                                                        max={100}
-                                                        value={item.quality}
-                                                        onChange={(e) =>
-                                                            updateGear(item.slot, {
-                                                                quality: clamp(toIntSafe(e.target.value, item.quality), 0, 100),
-                                                            })
-                                                        }
-                                                        className="flex-1 min-w-0 w-full max-w-[240px] xl:max-w-[300px] accent-indigo-500 opacity-70 hover:opacity-100 transition-opacity"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </SectionCard>
-
-                            {/* 3행: 진화 / 깨달음 / 도약 */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                <SectionCard title="진화 (Evolution)" icon={Sparkles} accent="text-amber-400">
-                                    {/* 기존 진화 UI */}
-                                    <div className="grid grid-cols-5 gap-3">
-                                        {Array.from({ length: 20 }).map((_, i) => (
-                                            <div
-                                                key={i}
-                                                className={`w-11 h-11 rounded-full border flex items-center justify-center transition-all ${
-                                                    i < 5 ? 'bg-amber-500/10 border-amber-500/30' : 'bg-zinc-900 border-zinc-800 opacity-30'
-                                                }`}
-                                            >
-                                                <Star size={16} className={i < 5 ? 'text-amber-400' : 'text-zinc-700'} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mt-4 pt-4 border-t border-zinc-900/50">
-                                        <EditableField
-                                            label="진화 잔여 포인트"
-                                            value={char.arkPassivePoints.evolution}
-                                            onChange={(v: any) => updateChar('arkPassivePoints.evolution', parseInt(v))}
-                                        />
-                                    </div>
-                                </SectionCard>
-
-                                <SectionCard title="깨달음 (Enlightenment)" icon={Wand2} accent="text-sky-400">
-                                    <div className="text-sm text-zinc-500 font-bold">준비중</div>
-                                </SectionCard>
-
-                                <SectionCard title="도약 (Leap)" icon={Flame} accent="text-rose-400">
-                                    <div className="text-sm text-zinc-500 font-bold">준비중</div>
-                                </SectionCard>
-                            </div>
-
-                            {/* 4행: 보석 (FULL) */}
-                            <SectionCard title="보석 (Gems)" icon={Gem} accent="text-emerald-400">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {(char as any).gems?.map((g: any, i: number) => (
-                                        <div
-                                            key={i}
-                                            className="flex items-center justify-between bg-zinc-900/40 border border-zinc-800/50 rounded-xl px-4 py-3"
-                                        >
-        <span className="text-[13px] font-black text-zinc-300">
-          슬롯 {i + 1}
+                <span className="mt-1.5 text-zinc-400 text-[12px] font-bold tracking-tighter drop-shadow-md group-hover:text-white">
+          Lv.{gem.Level}
         </span>
+            </div>
 
-                                            <select
-                                                value={g.key}
-                                                onChange={(e) => updateGem(i, e.target.value)}
-                                                className="bg-zinc-950/40 border border-zinc-800 text-zinc-200 font-bold text-[12px] rounded-lg px-3 py-2 outline-none focus:border-indigo-500/40 w-44 sm:w-52"
-                                            >
-                                                <option value="">선택 없음</option>
-                                                {gemOptions.map((opt) => (
-                                                    <option key={opt.key} value={opt.key}>
-                                                        {opt.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    ))}
-                                </div>
-                            </SectionCard>
+            {hoverIdx === index && hoverData && (
+                <div className="absolute left-full top-0 z-[9999] pl-4 -ml-2 h-full flex items-start">
+                    <div className="animate-in fade-in zoom-in-95 duration-200">
+                        <JewelryTooltip gemData={hoverData} />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
+/* ---------------------- Empty State Search UI ---------------------- */
+const NoCharacterView = ({
+                             onSearch,
+                             searching,
+                             error,
+                         }: {
+    onSearch: (name: string) => void;
+    searching: boolean;
+    error: string | null;
+}) => {
+    const [name, setName] = useState("");
 
-                            {/* 5행: 각인 (FULL) */}
-                            <SectionCard title="각인 (Engravings)" icon={Sparkles} accent="text-indigo-400">
-                                <div className="space-y-2.5">
-                                    {(char as any).engravings?.map((eng: any, idx: number) => (
-                                        <div key={idx} className="flex items-center justify-between border-b border-zinc-900/50 pb-2.5">
-                                            <span className="text-[15px] font-bold text-zinc-300">{eng.name}</span>
-                                            <span className="text-[13px] font-black text-indigo-400 bg-indigo-400/10 px-3 py-1 rounded-md border border-indigo-400/20">
-              Lv. {eng.level}
+    return (
+        <div className="min-h-[70vh] flex items-center justify-center px-6">
+            <div className="w-full max-w-xl bg-[#121213] border border-white/5 rounded-3xl p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                        <ShieldAlert className="text-red-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-white">캐릭터 정보가 없습니다.</h2>
+                        <p className="text-sm text-zinc-400 mt-1">
+                            시뮬레이터를 사용하려면 캐릭터를 먼저 검색해 주세요.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-6 flex gap-2">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                        <input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="캐릭터 이름 입력"
+                            className="w-full pl-10 pr-3 h-12 rounded-xl bg-zinc-950/40 border border-zinc-800 text-zinc-200 outline-none focus:border-indigo-500/40"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") onSearch(name.trim());
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => onSearch(name.trim())}
+                        disabled={searching || !name.trim()}
+                        className="h-12 px-5 rounded-xl bg-indigo-600 text-white font-black text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition"
+                    >
+                        {searching ? "검색중..." : "검색"}
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                        {error}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+/* ---------------------- Main Simulator ---------------------- */
+export const Simulator: React.FC<{ character?: CharacterInfo | null }> = ({ character: propCharacter }) => {
+    const location = useLocation();
+
+    /** ✅ 우선순위: props > location.state.character > null */
+    const initialCharacter = useMemo(() => {
+        const stateChar = (location.state as any)?.character ?? null;
+        return (propCharacter ?? stateChar) as CharacterInfo | null;
+    }, [location.state, propCharacter]);
+
+    const [character, setCharacter] = useState<CharacterInfo | null>(initialCharacter);
+
+    // 검색/로딩
+    const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
+
+    // 상세 데이터들
+    const [loading, setLoading] = useState(false);
+    const [equipments, setEquipments] = useState<Equipment[]>([]);
+    const [arkGrid, setArkGrid] = useState<ArkCoreData | null>(null);
+    const [gems, setGems] = useState<any>(null);
+    const [engravings, setEngravings] = useState<any>(null);
+    const [arkPassive, setArkPassive] = useState<any>(null);
+
+    // Hover states (툴팁)
+    const [weaponHover, setWeaponHover] = useState<any>(null);
+    const [accHoverIdx, setAccHoverIdx] = useState<number | null>(null);
+    const [accHoverData, setAccHoverData] = useState<any>(null);
+    const [arkCoreHoverIdx, setArkCoreHoverIdx] = useState<number | null>(null);
+    const [arkCoreHoverData, setArkCoreHoverData] = useState<any>(null);
+    const [jewHoverIdx, setJewHoverIdx] = useState<number | null>(null);
+    const [jewHoverData, setJewHoverData] = useState<any>(null);
+
+    useEffect(() => {
+        setCharacter(initialCharacter);
+    }, [initialCharacter]);
+
+    /** ✅ 캐릭터 검색 -> /stat 로 캐릭터 기본정보 확보 */
+    const handleSearch = async (name: string) => {
+        if (!name) return;
+        setSearching(true);
+        setSearchError(null);
+
+        try {
+            const res = await fetch(`/stat?name=${encodeURIComponent(name)}`);
+            if (!res.ok) throw new Error("캐릭터 정보를 불러올 수 없습니다.");
+            const data = await res.json();
+            setCharacter(data);
+        } catch (e: any) {
+            setSearchError(e?.message ?? "검색 실패");
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    /** ✅ 상세 데이터 로딩 (무기/악세/아크그리드/젬효과/보석/아크패시브) */
+    useEffect(() => {
+        if (!character?.CharacterName) return;
+
+        setLoading(true);
+        Promise.all([
+            fetch(`/equipment?name=${encodeURIComponent(character.CharacterName)}`).then((r) => r.json()),
+            fetch(`/arkgrid?name=${encodeURIComponent(character.CharacterName)}`).then((r) => r.json()),
+            fetch(`/gems?name=${encodeURIComponent(character.CharacterName)}`).then((r) => r.json()),
+            fetch(`/engravings?name=${encodeURIComponent(character.CharacterName)}`).then((r) => r.json()),
+            fetch(`/arkpassive?name=${encodeURIComponent(character.CharacterName)}`).then((r) => r.json()),
+        ])
+            .then(([eqData, arkData, gemData, engData, passiveData]) => {
+                setEquipments(Array.isArray(eqData) ? eqData : []);
+                setArkGrid(arkData ?? null);
+                setGems(gemData ?? null);
+                setEngravings(engData ?? null);
+                setArkPassive(passiveData ?? null);
+            })
+            .catch((err) => {
+                console.error("데이터 로딩 실패:", err);
+                setEquipments([]);
+                setArkGrid(null);
+                setGems(null);
+                setEngravings(null);
+                setArkPassive(null);
+            })
+            .finally(() => setLoading(false));
+    }, [character?.CharacterName]);
+
+    const getItemsByType = (types: string[]) => equipments.filter((i) => types.includes(i.Type));
+
+    /** ✅ 무기 1개 */
+    const weaponItem = useMemo(() => {
+        const w = getItemsByType(["무기"])[0];
+        return w ?? null;
+    }, [equipments]);
+
+    /** ✅ 악세사리 정렬: 목걸이 -> 귀걸이1/2 -> 반지1/2 -> 팔찌 */
+    const accessories = useMemo(() => {
+        const list = getItemsByType(["목걸이", "귀걸이", "반지", "팔찌"])
+            .filter((item) => {
+                try {
+                    const tooltip = JSON.parse(item.Tooltip);
+                    return (tooltip.Element_001?.value?.qualityValue ?? 0) !== -1;
+                } catch {
+                    return true;
+                }
+            });
+
+        const necklace = list.filter((x) => x.Type === "목걸이");
+        const earrings = list.filter((x) => x.Type === "귀걸이");
+        const rings = list.filter((x) => x.Type === "반지");
+        const bracelet = list.filter((x) => x.Type === "팔찌");
+
+        return [...necklace, ...earrings.slice(0, 2), ...rings.slice(0, 2), ...bracelet.slice(0, 1)];
+    }, [equipments]);
+
+    // 캐릭터 없으면 빈 화면 + 검색창
+    if (!character?.CharacterName) {
+        return <NoCharacterView onSearch={handleSearch} searching={searching} error={searchError} />;
+    }
+
+    // 상세 로딩
+    if (loading) {
+        return (
+            <div className="py-24 flex flex-col items-center justify-center">
+                <Loader2 className="animate-spin text-indigo-500 w-8 h-8 mb-3" />
+                <span className="text-zinc-500 text-sm">정보를 불러오는 중...</span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-[1800px] mx-auto px-6 py-6 text-zinc-200">
+            {/* ✅ 시뮬레이터 상단 캐릭터 카드 */}
+            {/* ===================== 1) 상단 2열: 좌(무기+악세) / 우(아크그리드+젬효과) ===================== */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                {/* 좌측: 무기 + 악세사리 (한 구역) */}
+                <section className="lg:col-span-6 bg-zinc-950 p-6 rounded-3xl border border-white/5 h-full">
+                    <div className="flex items-end justify-between border-b border-white/10 pb-2 mb-4">
+                        <h2 className="text-lg font-bold text-white/90 tracking-tight">무기 / 악세사리</h2>
+                        <span className="text-[10px] font-black text-emerald-400 px-2 py-0.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+              아크 패시브 ON
             </span>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        {/* 무기 */}
+                        {weaponItem && (() => {
+                            let tooltip: any = null;
+                            try { tooltip = JSON.parse(weaponItem.Tooltip); } catch {}
+                            const quality = tooltip?.Element_001?.value?.qualityValue ?? 0;
+
+                            const reinforceLevel = weaponItem.Name.match(/\+(\d+)/)?.[0] || "";
+                            const itemName = cleanText(weaponItem.Name).replace(/\+\d+\s/, "");
+
+                            let advancedReinforce = "0";
+                            const advMatch = cleanText(tooltip?.Element_005?.value || "").match(/\[상급\s*재련\]\s*(\d+)단계/);
+                            if (advMatch) advancedReinforce = advMatch[1];
+
+                            return (
+                                <div
+                                    key={weaponItem.Name}
+                                    className="relative group flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors h-[72px] cursor-help"
+                                    onMouseEnter={() => setWeaponHover(tooltip)}
+                                    onMouseLeave={() => setWeaponHover(null)}
+                                >
+                                    <div className="relative shrink-0">
+                                        <div className="p-0.5 rounded-lg bg-gradient-to-br from-[#3d3325] to-[#1a1a1c] border border-[#e9d2a6]/30 shadow-lg">
+                                            <img src={weaponItem.Icon} className="w-12 h-12 rounded-md object-cover bg-black/20" alt={itemName} />
                                         </div>
-                                    ))}
-                                </div>
-                            </SectionCard>
-
-                        </div>
-                    )}
-
-
-                    {/* Results View: 원본 유지 */}
-                    {subTab === 'results' && (
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 bg-surface rounded-[2.5rem] border border-zinc-900 p-10 min-h-[700px]">
-                            <div className="lg:col-span-5 space-y-8 border-r border-zinc-900/50 pr-10">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="text-2xl font-black text-zinc-100 italic">SKILLS</h3>
-                                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase">
-                                        Sort <ChevronDown size={14} />
+                                        <div className={`absolute -bottom-1 -right-1 px-1 rounded-md text-[10px] font-black border ${getQualityColor(quality)} bg-zinc-900 text-[#e9d2a6]`}>
+                                            {quality}
+                                        </div>
                                     </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-white/90 font-bold text-[14px] truncate mb-0.5">{itemName}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white/50 text-[12px]">재련 {reinforceLevel}</span>
+                                            {advancedReinforce !== "0" && (
+                                                <span className="text-sky-400 text-[12px] font-bold">상재 +{advancedReinforce}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {weaponHover && (
+                                        <div className="absolute left-full top-0 -ml-2 pl-4 z-[9999] h-full flex items-start">
+                                            <EquipmentTooltip data={weaponHover} />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-3">
-                                    {(char as any).skills?.map((skill: any, i: number) => (
+                            );
+                        })()}
+
+                        {/* 악세사리: 목걸이 -> 귀걸이1 -> 귀걸이2 -> 반지1 -> 반지2 -> 팔찌 */}
+                        {accessories.map((item, i) => {
+                            let tooltip: any = null;
+                            try { tooltip = JSON.parse(item.Tooltip); } catch {}
+                            const quality = tooltip?.Element_001?.value?.qualityValue ?? 0;
+
+                            const passive = cleanText(tooltip?.Element_007?.value?.Element_001 || "").match(/\d+/)?.[0] || "0";
+                            const tierStr = tooltip?.Element_001?.value?.leftStr2 || "";
+                            const tier = tierStr.replace(/[^0-9]/g, "").slice(-1) || "4";
+
+                            return (
+                                <div
+                                    key={`${item.Type}-${i}-${item.Name}`}
+                                    className="relative group flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors h-[72px] cursor-help"
+                                    onMouseEnter={() => {
+                                        setAccHoverIdx(i);
+                                        setAccHoverData(tooltip);
+                                    }}
+                                    onMouseLeave={() => {
+                                        setAccHoverIdx(null);
+                                        setAccHoverData(null);
+                                    }}
+                                >
+                                    <div className="relative shrink-0">
+                                        <div className="p-0.5 rounded-lg bg-gradient-to-br from-[#3d3325] to-[#1a1a1c] border border-[#e9d2a6]/30">
+                                            <img src={item.Icon} className="w-12 h-12 rounded-md object-cover" alt="" />
+                                        </div>
+                                        <div className={`absolute -bottom-1 -right-1 px-1 rounded-md text-[10px] font-black border ${getQualityColor(quality)} bg-zinc-900 text-[#e9d2a6]`}>
+                                            {quality}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-[2] min-w-0">
+                                        <h3 className="text-white/90 font-bold text-[14px] truncate mb-0.5">{item.Name || "아이템"}</h3>
+                                        <div className="flex gap-4 text-[11px]">
+                                            <span className="text-orange-400 font-bold">깨달음 +{passive}</span>
+                                            <span className="text-white/40 font-medium">{tier}티어</span>
+                                        </div>
+                                    </div>
+
+                                    {accHoverIdx === i && accHoverData && (
+                                        <div className="absolute left-full top-0 -ml-2 pl-4 z-[9999] h-full flex items-start">
+                                            <AccessoryTooltip data={accHoverData} />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                {/* 우측: 같은 높이 구역 안에서 "아크그리드 / 젬효과" 병렬 */}
+                <section className="lg:col-span-6 bg-[#121213] p-6 rounded-3xl border border-white/5 h-full">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch h-full">
+                        {/* 아크 그리드 */}
+                        <div className="flex flex-col h-full">
+                            <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-6">
+                                <div className="w-1.5 h-5 bg-purple-500 rounded-full"></div>
+                                <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">아크 그리드</h1>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-y-12 gap-x-4">
+                                {arkGrid?.Slots?.map((slot, i) => {
+                                    const nameParts = slot.Name.split(/\s*:\s*/);
+                                    const category = nameParts[0];
+                                    const subName = nameParts[1];
+
+                                    return (
                                         <div
                                             key={i}
-                                            onClick={() => setSelectedSkillIndex(i)}
-                                            className={`p-4 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
-                                                selectedSkillIndex === i ? 'bg-zinc-800 border-indigo-500/30' : 'bg-zinc-950/20 border-zinc-900'
-                                            }`}
+                                            className="relative group flex flex-col items-center cursor-help"
+                                            onMouseEnter={() => {
+                                                setArkCoreHoverIdx(i);
+                                                const parsed = typeof slot.Tooltip === "string" ? JSON.parse(slot.Tooltip) : slot.Tooltip;
+                                                setArkCoreHoverData({ core: parsed, gems: slot.Gems });
+                                            }}
+                                            onMouseLeave={() => {
+                                                setArkCoreHoverIdx(null);
+                                                setArkCoreHoverData(null);
+                                            }}
                                         >
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center border border-zinc-800">
-                                                    <Sword size={20} className={selectedSkillIndex === i ? 'text-indigo-400' : 'text-zinc-700'} />
+                                            <div className="relative w-16 h-16 mb-4 shrink-0">
+                                                <div className="w-full h-full bg-[#0c0c0d] rounded-2xl p-1.5 border border-zinc-800 group-hover:border-purple-900/50 transition-all shadow-[inset_0_2px_10px_rgba(0,0,0,1)] flex items-center justify-center">
+                                                    <img src={slot.Icon} className="w-full h-full object-contain filter drop-shadow-md" alt="" />
                                                 </div>
-                                                <div>
-                                                    <p className="text-[15px] font-bold text-zinc-100">{skill.name}</p>
-                                                    <div className="h-1.5 w-24 bg-zinc-900 rounded-full mt-1.5 overflow-hidden">
-                                                        <div className="h-full bg-indigo-500" style={{ width: `${skill.damageContribution}%` }} />
+
+                                                {slot.Gems?.length > 0 && (
+                                                    <div className="absolute -right-1 -bottom-1 w-5 h-5 bg-[#7b2cff] rounded-full border-[3px] border-[#0c0c0d] flex items-center justify-center shadow-[0_0_8px_rgba(123,44,255,0.4)]">
+                                                        <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_4px_#fff]"></div>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
-                                            <p className="text-lg font-black text-white italic">{(skill.damageContribution * 0.25).toFixed(1)}억</p>
+
+                                            <div className="w-full text-center flex flex-col items-center">
+                                                <span className="text-[12px] font-bold text-sky-400/90 leading-tight">{category}</span>
+                                                <span className="text-[12px] font-extrabold text-zinc-100 mt-0.5 leading-tight">{subName}</span>
+                                                <span className="text-[14px] font-black text-[#f18c2d] mt-2 tracking-tighter">{slot.Point}p</span>
+                                            </div>
+
+                                            {arkCoreHoverIdx === i && arkCoreHoverData && (
+                                                <div
+                                                    className="absolute left-full top-0 -ml-2 pl-4 z-[9999] h-full flex items-start pointer-events-auto animate-in fade-in slide-in-from-left-2 duration-200"
+                                                    onMouseEnter={() => setArkCoreHoverIdx(i)}
+                                                    onMouseLeave={() => {
+                                                        setArkCoreHoverIdx(null);
+                                                        setArkCoreHoverData(null);
+                                                    }}
+                                                >
+                                                    <ArkCoreTooltip data={arkCoreHoverData.core} Gems={arkCoreHoverData.gems} />
+                                                </div>
+                                            )}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="lg:col-span-7 flex flex-col items-center justify-center text-center space-y-10">
-                                <div className="space-y-4">
-                                    <div className="w-20 h-20 bg-indigo-500/10 rounded-3xl border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto">
-                                        <Zap size={36} />
-                                    </div>
-                                    <h3 className="text-4xl font-black text-zinc-100 italic">{selectedSkill.name}</h3>
-                                    <div className="pt-4">
-                                        <p className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1">Expected Damage</p>
-                                        <p className="text-7xl font-black text-white italic tracking-tighter">
-                                            {(selectedSkill.damageContribution * 0.25).toFixed(2)}
-                                            <span className="text-2xl text-zinc-700 ml-2">억</span>
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6 w-full max-w-lg bg-zinc-950/40 p-8 rounded-[2rem] border border-zinc-900/50">
-                                    <div className="space-y-2">
-                                        <p className="text-blue-400 text-xs font-black uppercase">CASE 1 (Crit)</p>
-                                        <p className="text-3xl font-black text-white">9.6억</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <p className="text-pink-400 text-xs font-black uppercase">CASE 2 (Normal)</p>
-                                        <p className="text-3xl font-black text-white">2.8억</p>
-                                    </div>
-                                </div>
+                                    );
+                                })}
                             </div>
                         </div>
+
+                        {/* 젬 효과 */}
+                        <div className="flex flex-col h-full md:border-l md:border-zinc-800/30 md:pl-8">
+                            <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-6">
+                                <div className="w-1.5 h-5 bg-purple-500 rounded-full"></div>
+                                <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">젬 효과</h1>
+                            </div>
+
+                            <div className="flex flex-col gap-5">
+                                {arkGrid?.Effects?.map((effect, i) => {
+                                    const txt = effect.Tooltip.replace(/<[^>]*>?/gm, "").replace(/\s*\+\s*$/, "");
+                                    const splitPos = txt.lastIndexOf(" +");
+                                    const desc = splitPos >= 0 ? txt.substring(0, splitPos) : txt;
+                                    const val = splitPos >= 0 ? txt.substring(splitPos + 1) : "";
+
+                                    return (
+                                        <div key={i} className="flex flex-col leading-snug">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-zinc-100 font-bold text-[14px]">{effect.Name}</span>
+                                                <span className="text-zinc-500 text-[11px] font-bold">Lv.{effect.Level}</span>
+                                            </div>
+                                            <div className="text-[13px] text-zinc-400 font-medium">
+                                                {desc} {val && <span className="text-[#ffd200] font-bold">{val}</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {!arkGrid?.Effects?.length && (
+                                    <div className="text-sm text-zinc-500">젬 효과 정보가 없습니다.</div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {/* ===================== 2) 보석 (위 덩어리 밑) ===================== */}
+            <section className="mt-10 w-full flex flex-col items-center">
+                <div className="w-full max-w-5xl flex items-center justify-between border-b border-zinc-800 pb-2 mb-8">
+                    <h2 className="text-xl font-bold text-zinc-100 uppercase tracking-tight">보석</h2>
+                    <div className="text-[12px] bg-blue-500/10 text-blue-400 px-4 py-1.5 rounded-full border border-blue-500/20 font-black shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                        {gems?.Effects?.Description?.replace(/<[^>]*>?/gm, "").trim() || "정보 없음"}
+                    </div>
+                </div>
+
+                <div
+                    className="relative w-full max-w-5xl p-8 rounded-[40px] border border-zinc-700/50 shadow-2xl flex items-center justify-center min-h-[400px]"
+                    style={{
+                        background: `linear-gradient(180deg, #0f1217 0%, #07090c 100%)`,
+                        boxShadow: "inset 0 0 100px rgba(0,0,0,0.8)",
+                    }}
+                >
+                    <div className="absolute inset-0 z-0 pointer-events-none">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-900/20 rounded-full blur-[120px]" />
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-30 pointer-events-none" />
+                    </div>
+
+                    <div className="relative z-10 flex flex-col items-center gap-2">
+                        <div className="flex items-center gap-40">
+                            <div className="flex gap-4">
+                                <GemSlot gem={gems?.Gems?.[0]} index={0} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                                <GemSlot gem={gems?.Gems?.[1]} index={1} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                            </div>
+                            <div className="flex gap-6">
+                                <GemSlot gem={gems?.Gems?.[2]} index={2} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                                <GemSlot gem={gems?.Gems?.[3]} index={3} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-6 -mt-2">
+                            <GemSlot gem={gems?.Gems?.[4]} index={4} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                            <GemSlot gem={gems?.Gems?.[5]} index={5} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} isCenter={true} />
+                            <GemSlot gem={gems?.Gems?.[6]} index={6} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                        </div>
+
+                        <div className="flex items-center gap-40 -mt-2">
+                            <div className="flex gap-4">
+                                <GemSlot gem={gems?.Gems?.[7]} index={7} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                                <GemSlot gem={gems?.Gems?.[8]} index={8} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                            </div>
+                            <div className="flex gap-6">
+                                <GemSlot gem={gems?.Gems?.[9]} index={9} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                                <GemSlot gem={gems?.Gems?.[10]} index={10} hoverIdx={jewHoverIdx} hoverData={jewHoverData} setHoverIdx={setJewHoverIdx} setHoverData={setJewHoverData} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ===================== 3) 활성 각인 (아크 패시브) (보석 밑) ===================== */}
+            <section className="mt-10 space-y-4">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 text-white">
+                    <h2 className="text-xl font-bold">활성 각인 (아크 패시브)</h2>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3">
+                    {(engravings?.ArkPassiveEffects ?? []).map((eng: ArkPassiveEffect, i: number) => {
+                        const n = typeof eng.Level === "number" ? eng.Level : 0;
+                        const m = typeof eng.AbilityStoneLevel === "number" ? eng.AbilityStoneLevel : 0;
+
+                        const iconUrl = getEngravingIconUrl(eng.Name);
+                        const stoneIcon = eng.AbilityStoneIcon || FALLBACK_ABILITY_STONE_ICON;
+
+                        return (
+                            <div key={i} className="flex items-center justify-between bg-[#181818] px-3 py-2 rounded border border-white/5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-7 h-7 shrink-0 rounded overflow-hidden bg-black/30 border border-white/10">
+                                        {iconUrl ? <img src={iconUrl} alt={eng.Name} className="w-full h-full object-cover" /> : <div className="w-full h-full" />}
+                                    </div>
+
+                                    <span className="text-[12px] font-black text-white/90 shrink-0">{n}단계</span>
+                                    <span className="text-zinc-100 font-semibold truncate">{eng.Name}</span>
+
+                                    {m > 0 && (
+                                        <span className="inline-flex items-center gap-1 shrink-0">
+                      <img src={stoneIcon} alt="Ability Stone" className="w-4 h-4" />
+                      <span className="text-[12px] font-black text-sky-400">Lv.{m}</span>
+                    </span>
+                                    )}
+                                </div>
+
+                                <div className="shrink-0" />
+                            </div>
+                        );
+                    })}
+
+                    {!((engravings?.ArkPassiveEffects ?? []).length) && (
+                        <div className="text-sm text-zinc-500 bg-zinc-950/40 border border-white/5 rounded-xl p-4">
+                            활성 각인(아크 패시브) 정보가 없습니다.
+                        </div>
                     )}
-                </motion.div>
-            </AnimatePresence>
+                </div>
+            </section>
         </div>
     );
 };

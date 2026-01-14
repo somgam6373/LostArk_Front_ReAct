@@ -13,7 +13,7 @@ import HomePage from './pages/HomePage';
 import RaidPage from './pages/RaidPage';
 import AuctionPage from './pages/auctionPage';
 import ProfilePage from './pages/ProfilePage'; // 새로 만든 프로필 페이지
-import { Simulator } from './components/simulator/Simulator';
+import { SimulatorPage } from "@/pages/SimulatorPage";
 
 // 타입 및 상수
 import { MOCK_CHARACTER } from './constants';
@@ -84,12 +84,15 @@ export default function App() {
                     </PageWrapper>
                   } />
 
-                  {/* 4. 시뮬레이터 */}
-                  <Route path="/simulatorPage" element={
-                    <PageWrapper>
-                      <Simulator character={MOCK_CHARACTER} />
-                    </PageWrapper>
-                  } />
+                  <Route
+                      path="/simulatorPage"
+                      element={
+                        <PageWrapper>
+                          <SimulatorPage />
+                        </PageWrapper>
+                      }
+                  />
+
 
                   {/* 5. 경매 계산기 */}
                   <Route path="/auctionPage" element={

@@ -1,29 +1,29 @@
 import React, { useMemo } from 'react';
-import { Shield, Swords, Users, Trophy, Zap, Target, Flame, GripVertical, Home } from 'lucide-react';
+import { Shield, Swords, Zap, Target, Flame, Trophy, GripVertical } from 'lucide-react';
 
 export const CharacterHeader = ({ character }: { character: any }) => {
     const stats = character.Stats || [];
     const getStat = (type: string) => stats.find((s: any) => s.Type === type)?.Value || "-";
 
-    // 1. 랜덤 광원 색상 리스트 (RGBA 포맷)
-    const lightColors = useMemo(() => [
-        'rgba(168, 85, 247, 0.25)',   // 보라 (전설/영웅 등급 느낌)
-        'rgba(232, 103, 50, 0.3)',    // 고대 (로아 고대 장비의 독특한 주황색)
-        'rgba(255, 77, 0, 0.3)',      // 유물 (강렬한 유물 등급 주황)
-        'rgba(255, 215, 0, 0.25)',    // 노란색 (에스더/골드 느낌)
-        'rgba(30, 58, 138, 0.35)',    // 남색 (심연/어둠 계열 느낌)
-        'rgba(255, 255, 255, 0.15)',  // 하얀색 (고결한 빛 느낌 - 투명도 낮게 조절)
-    ], []);
+    const lightColors = useMemo(
+        () => [
+            'rgba(168, 85, 247, 0.25)',
+            'rgba(232, 103, 50, 0.3)',
+            'rgba(255, 77, 0, 0.3)',
+            'rgba(255, 215, 0, 0.25)',
+            'rgba(30, 58, 138, 0.35)',
+            'rgba(255, 255, 255, 0.15)',
+        ],
+        []
+    );
 
-    // 2. 렌더링 시 랜덤하게 색상 하나 선택
     const randomColor = useMemo(() => {
         return lightColors[Math.floor(Math.random() * lightColors.length)];
-    }, []);
+    }, [lightColors]);
 
     return (
         <div className="relative w-full max-w-8xl mx-auto min-h-[350px] bg-[#15181d] text-white p-8 overflow-hidden rounded-xl border border-white/5">
-
-            {/* 캐릭터 이미지: z-0 */}
+            {/* 캐릭터 이미지 */}
             <div className="absolute right-[-4%] top-[-18%] w-[600px] h-[130%] z-0">
                 <div className="relative w-full h-full">
                     <div className="absolute inset-y-0 left-0 w-40 bg-gradient-to-r from-[#15181d] to-transparent z-10" />
@@ -35,26 +35,27 @@ export const CharacterHeader = ({ character }: { character: any }) => {
                 </div>
             </div>
 
-            {/* 콘텐츠 영역: z-10 */}
+            {/* 콘텐츠 */}
             <div className="relative z-10 flex flex-col justify-between h-full min-h-[290px]">
-                {/* 상단 섹션 */}
+                {/* 상단 */}
                 <div className="flex justify-between items-center">
                     <div className="flex gap-2">
-                        <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1 rounded text-xs font-bold uppercase">
-                            {character.ServerName}
-                        </span>
+            <span className="bg-purple-500/10 text-purple-500 border border-purple-500/20 px-3 py-1 rounded text-xs font-bold uppercase">
+              {character.ServerName}
+            </span>
                         <span className="bg-zinc-800/80 backdrop-blur-sm px-3 py-1 rounded text-xs font-bold text-zinc-300 border border-white/5">
-                            {character.CharacterClassName}
-                        </span>
+              {character.CharacterClassName}
+            </span>
                     </div>
                 </div>
 
-                {/* 중앙 섹션 */}
+                {/* 중앙 */}
                 <div className="mt-4">
                     <div className="flex items-center gap-2 mb-1">
                         <GripVertical size={16} className="text-zinc-600" />
                         <p className="text-sm text-zinc-500 italic font-medium">{character.Title || "원정대의 희망"}</p>
                     </div>
+
                     <h1 className="text-6xl font-black tracking-tighter mb-4">{character.CharacterName}</h1>
 
                     <div className="flex items-center gap-8 mt-2">
@@ -64,6 +65,7 @@ export const CharacterHeader = ({ character }: { character: any }) => {
                                 <span className="text-sm font-bold">Lv.{character.CharacterLevel}</span>
                             </div>
                         </div>
+
                         <div className="flex items-center gap-6">
                             <SlimStat icon={<Target size={14} className="text-orange-400" />} label="치명" value={getStat("치명")} />
                             <SlimStat icon={<Flame size={14} className="text-rose-400" />} label="특화" value={getStat("특화")} />
@@ -72,7 +74,7 @@ export const CharacterHeader = ({ character }: { character: any }) => {
                     </div>
                 </div>
 
-                {/* 하단 섹션: 광원이 덮는 부분 */}
+                {/* 하단 */}
                 <div className="flex justify-between items-end mt-auto pt-6">
                     <div className="flex gap-12">
                         <SimpleStat label="아이템 레벨" value={character.ItemAvgLevel} icon={<Shield size={18} />} />
@@ -82,7 +84,7 @@ export const CharacterHeader = ({ character }: { character: any }) => {
                 </div>
             </div>
 
-            {/* 3. 랜덤 광원 효과: z-20으로 최상단 배치 */}
+            {/* 랜덤 광원 */}
             <div
                 className="absolute -bottom-1/2 left-1/2 -translate-x-1/2 translate-y-1/2 z-20 pointer-events-none"
                 style={{
@@ -93,14 +95,13 @@ export const CharacterHeader = ({ character }: { character: any }) => {
                     maskImage: 'radial-gradient(50% 50%, black 20%, transparent 100%)',
                     WebkitMaskImage: 'radial-gradient(50% 50%, black 20%, transparent 100%)',
                     filter: 'blur(15rem)',
-                    backgroundColor: randomColor, // 랜덤 색상 적용
+                    backgroundColor: randomColor,
                 }}
             />
         </div>
     );
 };
 
-/* 보조 컴포넌트 */
 const SlimStat = ({ icon, label, value }: any) => (
     <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
