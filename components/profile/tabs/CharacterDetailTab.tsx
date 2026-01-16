@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, AlertCircle, Server, ChevronRight } from 'lucide-react';
+import { Loader2, AlertCircle, Server, ChevronRight, Trophy, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { CLASS_ICON_MAP, DEFAULT_ICON } from '@/constants/classIcons';
 
-// 1. 데이터 타입 정의
 interface CharacterData {
     ServerName: string;
     CharacterName: string;
@@ -13,11 +13,64 @@ interface CharacterData {
 }
 
 interface CharacterDetailTabProps {
-    character: {
-        CharacterName: string;
+    character?: {
+        CharacterName?: string;
         [key: string]: any;
     };
 }
+
+// 아이템 레벨별 등급 색상 로직
+const getGradeStyles = (levelStr: string, isCurrent: boolean) => {
+    const level = parseFloat(levelStr.replace(/,/g, ''));
+
+// 1. 고대 (1680 이상) - 가장 선명하고 화려한 스타일
+    if (level >= 1680) return {
+        bg: 'from-[#3d3325] to-[#1a1a1c]',
+        border: 'border-[#e9d2a6]/100',
+        text: 'text-[#e9d2a6]',
+        glow: isCurrent ? 'shadow-[0_0_20px_rgba(233,210,166,0.4)]' : 'shadow-[#e9d2a6]/10'
+    };
+
+    // 2. 상위 유물 (1600 이상) - 약간의 투명도가 들어간 테두리
+    if (level >= 1600) return {
+        bg: 'from-[#2a1a12] to-[#111111]',
+        border: 'border-[#e9d2a6]/80',
+        text: 'text-[#e9d2a6]/90',
+        glow: isCurrent ? 'shadow-[0_0_20px_rgba(254,150,0,0.2)]' : ''
+    };
+
+    // 3. 유물 (1580 이상)
+    if (level >= 1580) return {
+        bg: 'from-[#2a1a12] to-[#111111]',
+        border: 'border-[#e9d2a6]/60',
+        text: 'text-[#e9d2a6]/80',
+        glow: isCurrent ? 'shadow-[0_0_20px_rgba(206,67,0,0.2)]' : ''
+    };
+
+    // 4. 전설 (1490 이상)
+    if (level >= 1490) return {
+        bg: 'from-[#41321a] to-[#111111]',
+        border: 'border-[#e9d2a6]/40',
+        text: 'text-[#e9d2a6]/70',
+        glow: isCurrent ? 'shadow-[0_0_20px_rgba(255,234,26,0.15)]' : ''
+    };
+
+    // 5. 희귀/영웅 (1415 이상)
+    if (level >= 1415) return {
+        bg: 'from-[#1a2a3e] to-[#111]',
+        border: 'border-[#e9d2a6]/20',
+        text: 'text-[#e9d2a6]/60',
+        glow: isCurrent ? 'shadow-[0_0_20px_rgba(0,176,255,0.15)]' : ''
+    };
+
+    // 6. 기본 (그 외)
+    return {
+        bg: 'from-[#222] to-[#111]',
+        border: 'border-[#e9d2a6]/10',
+        text: 'text-[#e9d2a6]/40',
+        glow: ''
+    };
+};
 
 export const CharacterDetailTab = ({ character }: CharacterDetailTabProps) => {
     const navigate = useNavigate();
@@ -25,51 +78,29 @@ export const CharacterDetailTab = ({ character }: CharacterDetailTabProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // 2. Siblings 데이터 호출
+    // 1. 데이터 호출 (Siblings)
     useEffect(() => {
         const fetchSiblings = async () => {
             if (!character?.CharacterName) {
                 setLoading(false);
                 return;
             }
-
             setLoading(true);
-            setError(null);
-
             try {
-                // 백엔드 @RequestParam String query 에 맞춰 query= 사용
                 const response = await fetch(`/siblings?name=${encodeURIComponent(character.CharacterName)}`);
-
-                if (!response.ok) {
-                    throw new Error(`서버 응답 에러: ${response.status}`);
-                }
-
+                if (!response.ok) throw new Error(`에러: ${response.status}`);
                 const json = await response.json();
                 setData(json || []);
-            } catch (error: any) {
-                console.error("로딩 실패:", error);
-                setError(error.message);
+            } catch (err: any) {
+                setError("원정대 데이터를 불러오는 중 에러가 발생했습니다.");
             } finally {
                 setLoading(false);
             }
         };
-
         fetchSiblings();
     }, [character?.CharacterName]);
 
-    // 3. 캐릭터 클릭 시 이동 로직
-    const handleCharacterClick = (e: React.MouseEvent, targetName: string) => {
-        e.preventDefault();
-        e.stopPropagation(); // 부모 컴포넌트의 클릭 이벤트 전파 방지
-
-        if (targetName === character.CharacterName) return;
-
-        // App.tsx의 Route path="/profilePage" 와 일치시킴
-        // window.location.href 대신 navigate를 사용하여 SPA 흐름 유지
-        navigate(`/profilePage?name=${encodeURIComponent(targetName)}`);
-    };
-
-    // 4. 서버별 그룹화 및 레벨순 정렬
+    // 2. 서버별 그룹화 로직 (이 부분이 에러의 원인이었습니다)
     const groupedByServer = useMemo(() => {
         if (!data || data.length === 0) return {};
 
@@ -80,7 +111,7 @@ export const CharacterDetailTab = ({ character }: CharacterDetailTabProps) => {
             return acc;
         }, {});
 
-        // 각 서버 내에서 아이템 레벨 내림차순 정렬
+        // 레벨 내림차순 정렬
         Object.keys(groups).forEach(server => {
             groups[server].sort((a, b) => {
                 const levelA = parseFloat(a.ItemAvgLevel.replace(/,/g, ''));
@@ -91,92 +122,80 @@ export const CharacterDetailTab = ({ character }: CharacterDetailTabProps) => {
         return groups;
     }, [data]);
 
-    // 로딩 화면
     if (loading) return (
-        <div className="w-full py-32 flex flex-col items-center justify-center bg-[#0f0f0f] rounded-xl border border-white/5">
-            <Loader2 className="animate-spin text-indigo-500 w-10 h-10 mb-4" />
-            <p className="text-zinc-500 font-medium">원정대 정보를 동기화 중...</p>
+        <div className="w-full py-40 flex flex-col items-center justify-center">
+            <Loader2 className="animate-spin text-purple-500 w-8 h-8 mb-4" />
+            <p className="text-zinc-500 text-xs tracking-widest uppercase">Syncing Expedition</p>
         </div>
     );
 
-    // 에러 화면
     if (error) return (
-        <div className="w-full py-32 flex flex-col items-center justify-center bg-[#0f0f0f] rounded-xl border border-red-500/20">
-            <AlertCircle className="w-12 h-12 text-red-500/50 mb-4" />
-            <p className="text-zinc-300 font-bold">원정대 정보를 불러오지 못했습니다.</p>
-            <p className="text-zinc-600 text-sm mt-2">{error}</p>
-        </div>
+        <div className="w-full py-20 text-center text-zinc-500">{error}</div>
     );
 
     return (
-        <div className="w-full bg-[#0f0f0f] text-zinc-300 p-2 sm:p-6 space-y-10 font-sans">
+        <div className="w-full bg-[#050505] p-4 sm:p-6 space-y-10">
             {Object.entries(groupedByServer).map(([serverName, characters]) => (
-                <div key={serverName} className="space-y-5">
-                    {/* 서버 구분선 헤더 */}
+                <div key={serverName} className="space-y-6">
                     <div className="flex items-center gap-3">
-                        <div className="p-1.5 bg-indigo-500/10 rounded-md">
-                            <Server className="w-4 h-4 text-indigo-400" />
-                        </div>
-                        <h3 className="text-lg font-black text-zinc-100 tracking-tight">{serverName}</h3>
-                        <span className="text-xs font-bold text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded border border-white/5">
-                            {characters.length}
-                        </span>
-                        <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent shadow-sm" />
+                        <h3 className="text-xl font-black text-white tracking-tighter uppercase">{serverName}</h3>
+                        <div className="h-[1px] flex-1 bg-gradient-to-r from-pink-500/30 to-transparent" />
                     </div>
 
-                    {/* 캐릭터 리스트 그리드 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        <AnimatePresence mode="popLayout">
-                            {characters.map((item, idx) => {
-                                const isCurrent = item.CharacterName === character.CharacterName;
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <AnimatePresence>
+                            {characters.map((item) => {
+                                const isCurrent = item.CharacterName === character?.CharacterName;
+                                const grade = getGradeStyles(item.ItemAvgLevel, isCurrent);
+
                                 return (
                                     <motion.div
                                         key={item.CharacterName}
-                                        initial={{ opacity: 0, y: 15 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.03 }}
-                                        whileHover={!isCurrent ? { y: -5, scale: 1.02 } : {}}
-                                        onClick={(e) => handleCharacterClick(e, item.CharacterName)}
-                                        className={`relative p-5 rounded-2xl border transition-all duration-300 group
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        onClick={() => !isCurrent && navigate(`/profilePage?name=${encodeURIComponent(item.CharacterName)}`)}
+                                        className={`group relative overflow-hidden rounded-2xl border p-4 transition-all duration-300
                                             ${isCurrent
-                                            ? 'bg-indigo-500/10 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)] cursor-default'
-                                            : 'bg-[#161618] border-white/5 hover:border-indigo-500/40 hover:bg-[#1c1c1e] cursor-pointer shadow-xl'}`}
+                                            ? `bg-white/[0.05] ${grade.border} ${grade.glow} ring-1 ring-white/10`
+                                            : 'bg-white/[0.02] border-white/[0.05] backdrop-blur-sm hover:bg-white/[0.06] hover:border-white/20 cursor-pointer'}`}
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className={`font-black text-[15px] mb-0.5 tracking-tight transition-colors 
-                                                    ${isCurrent ? 'text-indigo-400' : 'text-zinc-100 group-hover:text-indigo-300'}`}>
-                                                    {item.CharacterName}
-                                                </p>
-                                                <p className="text-xs font-bold text-zinc-500 group-hover:text-zinc-400">
-                                                    {item.CharacterClassName}
-                                                </p>
-                                            </div>
-                                            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-black/40 text-zinc-500 border border-white/5">
-                                                Lv.{item.CharacterLevel}
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-6 flex items-end justify-between">
-                                            <div>
-                                                <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Item Level</p>
-                                                <p className={`text-xl font-black tracking-tighter transition-colors 
-                                                    ${isCurrent ? 'text-indigo-300' : 'text-zinc-300 group-hover:text-white'}`}>
-                                                    {item.ItemAvgLevel}
-                                                </p>
-                                            </div>
-                                            {!isCurrent && (
-                                                <div className="p-2 rounded-full bg-zinc-800/50 text-zinc-600 group-hover:bg-indigo-500/20 group-hover:text-indigo-400 transition-all">
-                                                    <ChevronRight className="w-4 h-4" />
+                                        <div className="relative z-10 flex flex-col h-full">
+                                            <div className="flex items-center gap-3">
+                                                <div className="shrink-0">
+                                                    <img
+                                                        src={CLASS_ICON_MAP[item.CharacterClassName] || DEFAULT_ICON}
+                                                        alt=""
+                                                        className={`w-11 h-11 rounded-full border p-0.5 bg-black/40
+                                                            ${isCurrent ? grade.border : 'border-white/10'}`}
+                                                    />
                                                 </div>
-                                            )}
-                                        </div>
-
-                                        {isCurrent && (
-                                            <div className="absolute -top-2.5 right-4 bg-indigo-500 text-[10px] text-white font-black px-2.5 py-1 rounded-full shadow-lg border-2 border-[#0f0f0f]">
-                                                CURRENT
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5 leading-tight">
+                                                        <h4 className={`text-[15px] font-black truncate ${isCurrent ? 'text-white' : 'text-zinc-200'}`}>
+                                                            {item.CharacterName}
+                                                        </h4>
+                                                        {isCurrent && <Sparkles size={12} className="text-purple-400 shrink-0" />}
+                                                    </div>
+                                                    <p className="text-[11px] font-bold text-zinc-500 mt-0.5">
+                                                        {item.CharacterClassName} <span className="text-zinc-800 px-1">|</span> Lv.{item.CharacterLevel}
+                                                    </p>
+                                                </div>
                                             </div>
-                                        )}
+
+                                            <div className="mt-4 pt-3 border-t border-white/[0.05] flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`p-1.5 rounded-lg ${grade.bg} ${grade.text}`}>
+                                                        <Trophy size={14} fill="currentColor" fillOpacity={0.2} />
+                                                    </div>
+                                                    <span className={`text-lg font-black tracking-tighter ${grade.text}`}>
+                                                        {item.ItemAvgLevel}
+                                                    </span>
+                                                </div>
+                                                {!isCurrent && (
+                                                    <ChevronRight size={16} className="text-zinc-600 group-hover:text-white transition-colors" />
+                                                )}
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 );
                             })}
