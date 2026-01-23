@@ -1,0 +1,142 @@
+
+2. 기본 특성 제거
+3. 활성 각인 아이콘
+4. 아크 그리드 1열로 수정
+5. 아크 그리드 고대 폰트 색 더 희게
+
+
+                                        bg: 'from-[#3a2d1d] to-[#0f0f10]',
+                                        // 테두리: 선명하지만 부드러운 앰버 골드 (투명도 60%)
+                                        border: 'border-[#f2bc6f]/60 shadow-[0_0_10px_rgba(242,188,111,0.15)]',
+                                        // 텍스트: 시인성이 확보된 선명한 금색
+                                        text: 'text-[#f2bc6f] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]',
+                                        // 글로우: 은은하게 퍼지는 황금빛 아우라
+                                        glow: 'shadow-[#f2bc6f]/20 drop-shadow-[0_0_12px_rgba(242,188,111,0.3)]',
+                                        accent: 'bg-[#f2bc6f]'
+
+                                            const gradeStyles: any = {
+                                                '일반': { bg: 'from-zinc-800 to-zinc-950', border: 'border-white/10', text: 'text-zinc-400', glow: '', accent: 'bg-zinc-500' },
+                                                '고급': { bg: 'from-[#1a2e1a] to-[#0a0f0a]', border: 'border-[#48c948]/30', text: 'text-[#48c948]', glow: 'shadow-[#48c948]/5', accent: 'bg-[#48c948]' },
+                                                '희귀': { bg: 'from-[#1a2a3e] to-[#0a0d12]', border: 'border-[#00b0fa]/30', text: 'text-[#00b0fa]', glow: 'shadow-[#00b0fa]/10', accent: 'bg-[#00b0fa]' },
+                                                '영웅': { bg: 'from-[#2e1a3e] to-[#120a1a]', border: 'border-[#ce43fb]/30', text: 'text-[#ce43fb]', glow: 'shadow-[#ce43fb]/10', accent: 'bg-[#ce43fb]' },
+                                                '전설': { bg: 'from-[#41321a] to-[#1a120a]', border: 'border-[#f99200]/40', text: 'text-[#f99200]', glow: 'shadow-[#f99200]/15', accent: 'bg-[#f99200]' },
+                                                '유물': {
+                                                    bg: 'from-[#2a1a12] to-[#0a0a0a]',
+                                                    border: 'border-[#fa5d00]/50',
+                                                    text: 'text-[#fa5d00]',
+                                                    glow: 'shadow-[#fa5d00]/20 drop-shadow-[0_0_10px_rgba(250,93,0,0.2)]',
+                                                    accent: 'bg-[#fa5d00]'
+                                                },
+                                                '고대': {
+                                                    bg: 'from-[#3d3325] to-[#0f0f10]',
+                                                    border: 'border-[#e9d2a6]/40',
+                                                    text: 'text-[#e9d2a6]',
+                                                    glow: 'shadow-[#e9d2a6]/25 drop-shadow-[0_0_15px_rgba(233,210,166,0.3)]',
+                                                    accent: 'bg-[#e9d2a6]'
+                                                },
+                                                '에스더': {
+                                                    bg: 'from-[#0d2e2e] to-[#050505]',
+                                                    border: 'border-[#2edbd3]/60',
+                                                    text: 'text-[#2edbd3]',
+                                                    glow: 'shadow-[#2edbd3]/40 drop-shadow-[0_0_20px_rgba(46,219,211,0.4)]',
+                                                    accent: 'bg-[#2edbd3]'
+                                                }
+                                            };
+
+<div className="w-full lg:w-[40%] flex flex-col">
+    {/* 타이틀 영역 */}
+    <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-6">
+        <div className="w-1.5 h-5 bg-purple-500 rounded-full"></div>
+        <h1 className="text-lg font-extrabold text-white tracking-tight uppercase">
+            전투 장비
+        </h1>
+    </div>
+
+    <div className="flex flex-col gap-2">
+        {getItemsByType(['무기', '투구', '상의', '하의', '장갑', '어깨'])
+            .sort((a, b) => (a.Type === '무기' ? 1 : b.Type === '무기' ? -1 : 0))
+            .map((item, i) => {
+                let tooltip;
+                try { tooltip = JSON.parse(item.Tooltip); } catch (e) { return null; }
+
+                const quality = tooltip?.Element_001?.value?.qualityValue ?? 0;
+                const reinforceLevel = item.Name.match(/\+(\d+)/)?.[0] || '';
+                const itemName = cleanText(item.Name).replace(/\+\d+\s/, '');
+
+                const rawGrade = (item.Grade || "").trim();
+                let currentGrade = "일반";
+
+                if (rawGrade.includes('에스더') || item.Name.includes('에스더')) {
+                    currentGrade = '에스더';
+                } else if (rawGrade.includes('고대')) {
+                    currentGrade = '고대';
+                } else if (rawGrade.includes('유물')) {
+                    currentGrade = '유물';
+                } else if (rawGrade.includes('전설')) {
+                    currentGrade = '전설';
+                } else if (rawGrade.includes('영웅')) {
+                    currentGrade = '영웅';
+                } else if (rawGrade.includes('희귀')) {
+                    currentGrade = '희귀';
+                } else if (rawGrade.includes('고급')) {
+                    currentGrade = '고급';
+                }
+                const theme = gradeStyles[currentGrade] || gradeStyles['일반'];
+                let advancedReinforce = "0";
+                const advMatch = cleanText(tooltip?.Element_005?.value || "").match(/\[상급\s*재련\]\s*(\d+)단계/);
+                if (advMatch) advancedReinforce = advMatch[1];
+
+                return (
+                    <div key={item.Name}
+                         className="relative group flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors h-[72px] cursor-help"
+                    >
+                        {/* 아이콘 영역: 툴팁 위치의 기준점이 됨 */}
+                        <div className="relative shrink-0"
+                             onMouseEnter={() => {
+                                 setHoveredIndex(i);
+                                 setHoveredData(tooltip);
+                             }}
+                             onMouseLeave={() => {
+                                 setHoveredIndex(null);
+                                 setHoveredData(null);
+                             }}
+                        >
+                            <div className={`p-0.5 rounded-lg border shadow-lg bg-gradient-to-br ${theme.bg} ${theme.border} ${theme.glow || ''}`}>
+                                <img src={item.Icon} className="w-12 h-12 rounded-md object-cover bg-black/20" alt={itemName} />
+                                {(currentGrade === '고대' || currentGrade === '에스더') && (
+                                    <div className="absolute inset-0 rounded-lg shadow-[inset_0_1px_4px_rgba(255,255,255,0.1)] pointer-events-none" />
+                                )}
+                            </div>
+
+                            <div className={`absolute -bottom-1 -right-1 px-1 rounded-md text-[10px] font-black border ${getQualityColor(quality)} bg-zinc-900 text-[#e9d2a6]`}>
+                                {quality}
+                            </div>
+
+                            {/* 툴팁 모달: 아이콘(w-12) 바로 오른쪽에 배치 */}
+                            {hoveredIndex === i && hoveredData && (
+                                <div
+                                    className="absolute left-full top-0 ml-3 z-[9999] pointer-events-auto animate-in fade-in slide-in-from-left-1 duration-200"
+                                    style={{ width: 'max-content' }}
+                                >
+                                    <EquipmentTooltip data={hoveredData} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 정보 영역 */}
+                        <div className="flex-1 min-w-0">
+                            <h3 className={`font-bold text-[14px] truncate mb-0.5 ${theme.text}`}>
+                                {itemName}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <span className="text-white/50 text-[12px]">재련 {reinforceLevel}</span>
+                                {advancedReinforce !== "0" && (
+                                    <span className="text-sky-400 text-[12px] font-bold">상재 +{advancedReinforce}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+    </div>
+</div>

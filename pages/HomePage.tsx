@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
         >
             {/* 로고 섹션 (간격을 더 좁힘) */}
             <div className="text-center mb-12">
-                <h1 className="text-8xl font-black tracking-tighter text-white mb-2 leading-none">
+                <h1 className="text-[80px] font-black tracking-tighter text-white mb-2 leading-none">
                     LOAPANG
                 </h1>
                 <p className="text-zinc-400 text-lg font-medium tracking-wide">

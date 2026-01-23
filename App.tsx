@@ -54,7 +54,7 @@ export default function App() {
               setIsMenuOpen={setIsMenuOpen}
           />
           //width를 max-w-[2190px]에서 조절
-          <div className="pt-20 pb-64 px-12 mx-auto flex gap-20 transition-all duration-500 max-w-[2190px]">
+          <div className="pt-20 pb-64 px-12 mx-auto flex gap-20 transition-all duration-500 max-w-[2130px]">
             {/* 왼쪽 사이드바 */}
             <div className="hidden 2xl:block w-72 shrink-0">
               <SidebarAds side="left" />
