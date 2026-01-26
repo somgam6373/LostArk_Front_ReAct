@@ -4,14 +4,13 @@ import {Loader2, Search, ShieldAlert, RotateCcw, Diamond} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion"; // ✅ 애니메이션 추가
 import { SynergyBuffTab } from "./SynergyBuffTab";
 import { ResultTab } from "./Result";
-import EquipmentTooltip from "@/components/profile/Tooltip/EquipmentTooltip.tsx";
 import { ArkPassiveBoard } from "./ArkPassiveBoard.tsx";
 import engravingIconMap from "@/components/profile/tabs/engravingsIdTable.json";
 import JewelryTooltip from "@/components/profile/Tooltip/JewelryTooltip.tsx";
-import { CharacterInfo } from "../../types.ts";
+import { CharacterInfo } from "@/types.ts";
 import { SimTab } from "./SimulatorNav";
 import AccessoryTooltip from "@/components/profile/Tooltip/AccessoryTooltip.tsx";
-import { MASTER_DATA } from '@/constants/ArkPassiveData/arkPassiveData';
+import ArkCoreTooltip from "@/components/profile/Tooltip/ArkCoreTooltip.tsx";
 
 type CharacterInfoCompat = CharacterInfo & { CharacterName?: string };
 
@@ -35,6 +34,27 @@ interface EquipmentItemProps {
     setHoveredData: (data: any) => void;
 }
 
+interface ArkEffect {
+    Name: string;
+    Level: number;
+    Tooltip: string;
+}
+
+interface ArkSlot {
+    Index: number;
+    Icon: string;
+    Name: string;
+    Point: number;
+    Grade: string;
+    Tooltip: string | object;
+    Gems?: any[];
+}
+
+interface ArkCoreData {
+    Slots: ArkSlot[];
+    Effects: ArkEffect[];
+}
+
 /* ---------------------- 상수 및 스타일 (기존 유지) ---------------------- */
 const gradeStyles: any = {
     '일반': { bg: 'from-zinc-800 to-zinc-950', border: 'border-white/10', text: 'text-zinc-400', accent: 'bg-zinc-500' },
@@ -45,18 +65,6 @@ const gradeStyles: any = {
     '유물': { bg: 'from-[#351a0a] to-[#0a0a0a]', border: 'border-[#fa5d00]/50 shadow-[0_0_10px_rgba(250,93,0,0.2)]', text: 'text-[#ff7526]', accent: 'bg-[#fa5d00]' },
     '고대': { bg: 'from-[#3d3325] to-[#0f0f10]', border: 'border-[#e9d2a6]/40', text: 'text-[#e9d2a6]', accent: 'bg-[#e9d2a6]' },
     '에스더': { bg: 'from-[#0d2e2e] to-[#050505]', border: 'border-[#2edbd3]/60 shadow-[0_0_12px_rgba(46,219,211,0.2)]', text: 'text-[#45f3ec]', accent: 'bg-[#2edbd3]' }
-};
-
-/* --- [필수] 섹션 외부 상단에 정의되어야 할 테마 객체 --- */
-const arkTheme = {
-    '진화': { color: 'text-blue-400', border: 'border-blue-500/40', bg: 'bg-blue-500/10', shadow: 'shadow-blue-500/20', bar: 'bg-blue-500' },
-    '깨달음': { color: 'text-purple-400', border: 'border-purple-500/40', bg: 'bg-purple-500/10', shadow: 'shadow-purple-500/20', bar: 'bg-purple-500' },
-    '도약': { color: 'text-amber-400', border: 'border-amber-500/40', bg: 'bg-amber-500/10', shadow: 'shadow-amber-500/20', bar: 'bg-amber-500' }
-};
-
-const shortNames: Record<string, string> = {
-    '추가 피해': '추피', '적에게 주는 피해': '적주피', '치명타 적중률': '치적', '치명타 피해': '치피',
-    '공격력': '공격력', '무기 공격력': '무공', '조화 게이지 획득량': '아덴획득', '낙인력': '낙인력'
 };
 
 /* ---------------------- Interfaces & Utils (기존 유지) ---------------------- */
@@ -79,14 +87,6 @@ const FALLBACK_ABILITY_STONE_ICON =
 
 function safeClone<T>(v: T): T { try { return JSON.parse(JSON.stringify(v)); } catch { return v; } }
 
-function parseReinforceAndAdvanced(item: Equipment, tooltip: any) {
-    const reinforce = item?.Name?.match(/\+(\d+)/)?.[1] || "";
-    const reinforceLabel = reinforce ? `+${reinforce}` : "";
-    const advSrc = cleanText(tooltip?.Element_005?.value || "") + " " + cleanText(tooltip?.Element_006?.value || "");
-    const advMatch = advSrc.match(/\[상급\s*재련\]\s*(\d+)\s*단계/);
-    const advanced = advMatch?.[1] || "0";
-    return { reinforceLabel, advanced };
-}
 
 const EquipmentItem = ({
                            item, i, theme, tooltip, quality, reinforceLevel,
@@ -251,17 +251,99 @@ const GemSlot = ({ gem, index, hoverIdx, hoverData, setHoverIdx, setHoverData, i
         </div>
     );
 };
+/* ---------------------- Empty State Search UI ---------------------- */
+const NoCharacterView = ({
+                             onSearch,
+                             searching,
+                             error,
+                         }: {
+    onSearch: (name: string) => void;
+    searching: boolean;
+    error: string | null;
+}) => {
+    const [name, setName] = useState("");
 
+    return (
+        <div className="min-h-[70vh] flex items-center justify-center px-6">
+            <div className="w-full max-w-xl bg-[#121213] border border-white/5 rounded-3xl p-8 shadow-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                        <ShieldAlert className="text-red-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-white">캐릭터 정보가 없습니다.</h2>
+                        <p className="text-sm text-zinc-400 mt-1">
+                            시뮬레이터를 사용하려면 캐릭터를 먼저 검색해 주세요.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-6 flex gap-2">
+                    <div className="flex-1 relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                        <input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="캐릭터 이름 입력"
+                            className="w-full pl-10 pr-3 h-12 rounded-xl bg-zinc-950/40 border border-zinc-800 text-zinc-200 outline-none focus:border-indigo-500/40"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") onSearch(name.trim());
+                            }}
+                        />
+                    </div>
+
+                    <button
+                        onClick={() => onSearch(name.trim())}
+                        disabled={searching || !name.trim()}
+                        className="h-12 px-5 rounded-xl bg-indigo-600 text-white font-black text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-500 transition"
+                    >
+                        {searching ? "검색중..." : "검색"}
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                        {error}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 /* ---------------------- 메인 컴포넌트 ---------------------- */
 export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, activeTab }) => {
     const location = useLocation();
-    const initialCharacter = useMemo(() => (propCharacter ?? (location.state as any)?.character) as CharacterInfo | null, [location.state, propCharacter]);
-    const [character, setCharacter] = useState<CharacterInfoCompat | null>(initialCharacter);
+
+    /** ✅ 우선순위: props > location.state.character > null */
+    const initialCharacter = useMemo(() => {
+        const stateChar = (location.state as any)?.character ?? null;
+        return (propCharacter ?? stateChar) as CharacterInfo | null;
+    }, [location.state, propCharacter]);
+
+    // ✅ 원본 캐릭터 (절대 직접 수정 X)
+    const [character, setCharacter] = useState<CharacterInfoCompat  | null>(initialCharacter);
+
+    // ✅ 시뮬에서만 사용할 캐릭터 사본
+    const [simCharacter, setSimCharacter] = useState<CharacterInfoCompat  | null>(
+        initialCharacter ? safeClone(initialCharacter) : null
+    );
+    // ✅ 아크패시브: 원본/시뮬 분리
+    const [originalArkPassive, setOriginalArkPassive] = useState<any>(null);
+    const [simArkPassive, setSimArkPassive] = useState<any>(null);
+
+    const characterName = useMemo(() => {
+        return character?.CharacterName ?? character?.name ?? "";
+    }, [character]);
+
+    // 상세 데이터들(원본)
     const [loading, setLoading] = useState(false);
     const [equipments, setEquipments] = useState<Equipment[]>([]);
-    const [originalArkPassive, setOriginalArkPassive] = useState<any>(null);
+    const [arkGrid, setArkGrid] = useState<ArkCoreData | null>(null);
     const [gems, setGems] = useState<any>(null);
     const [engravings, setEngravings] = useState<any>(null);
+
+    const [arkCoreHoverIdx, setArkCoreHoverIdx] = React.useState<any>(null);
+    const [arkCoreHoverData, setArkCoreHoverData] = React.useState<any>(null);
     // 툴팁 상태 관리
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [hoveredData, setHoveredData] = useState<any>(null);
@@ -281,19 +363,10 @@ export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, 
     const [engrHoverName, setEngrHoverName] = useState<string | null>(null);
     const [engrHoverDesc, setEngrHoverDesc] = useState<string>("");
 
+
     // Simulator 컴포넌트 내부 상단에 추가
     const [arkData, setArkData] = useState<any>(null);
 
-    //아크 페시브 초기화
-    const handleReset = () => {
-        if (originalArkPassive) {
-            // 원본 데이터를 다시 복사하여 상태 초기화
-            setArkData(JSON.parse(JSON.stringify(originalArkPassive)));
-            // 선택된 효과나 모달도 닫아주는 것이 깔끔합니다.
-            setSelectedEffect(null);
-            alert("아크 패시브 설정이 초기 상태로 복구되었습니다.");
-        }
-    };
 
 // 데이터가 로드되면 시뮬레이션 상태에 복사
     useEffect(() => {
@@ -346,38 +419,39 @@ export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, 
         return html;
     };
 
-// 아이콘 URL 헬퍼
-    const getArkIconUrl = (iconId: string | number, tab: string) => {
-        const idStr = String(iconId);
-        if (tab === '진화') return `https://cdn-lostark.game.onstove.com/efui_iconatlas/ark_passive_evolution/ark_passive_evolution_${idStr}.png`;
-        if (idStr.includes('_')) {
-            const parts = idStr.split('_');
-            if (parts.length > 2) return `https://static.inven.co.kr/image_2011/site_image/lostark/arkpassiveicon/ark_passive_${idStr}.png?v=240902a`;
-            const folderName = `ark_passive_${parts[0]}`;
-            return `https://cdn-lostark.game.onstove.com/efui_iconatlas/${folderName}/${folderName}_${parts[1]}.png`;
-        }
-        return `https://cdn-lostark.game.onstove.com/efui_iconatlas/ark_passive_01/ark_passive_01_${idStr}.png`;
-    };
 
 
     // 2. 데이터 로딩
-    useEffect(() => { setCharacter(initialCharacter); }, [initialCharacter]);
-    const characterName = character?.CharacterName ?? character?.name ?? "";
-
     useEffect(() => {
         if (!characterName) return;
+
         setLoading(true);
         Promise.all([
             fetch(`/equipment?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/arkgrid?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/gems?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/engravings?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
             fetch(`/arkpassive?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
-            fetch(`/gems?name=${encodeURIComponent(character.CharacterName)}`).then(res => res.json()),
-            fetch(`/engravings?name=${encodeURIComponent(character.CharacterName)}`).then(res => res.json()),
-        ]).then(([eqData, passiveData, gemData, engData]) => {
-            setEquipments(Array.isArray(eqData) ? eqData : []);
-            setOriginalArkPassive(passiveData ?? null);
-            setGems(gemData); // 보석 데이터 저장
-            setEngravings(engData);
-        }).finally(() => setLoading(false));
+        ])
+            .then(([eqData, arkData, gemData, engData, passiveData]) => {
+                setEquipments(Array.isArray(eqData) ? eqData : []);
+                setArkGrid(arkData ?? null);
+                setGems(gemData ?? null);
+                setEngravings(engData ?? null);
+
+                setOriginalArkPassive(passiveData ?? null);
+                setSimArkPassive(passiveData ? safeClone(passiveData) : null);
+            })
+            .catch((err) => {
+                console.error("데이터 로딩 실패:", err);
+                setEquipments([]);
+                setArkGrid(null);
+                setGems(null);
+                setEngravings(null);
+                setOriginalArkPassive(null);
+                setSimArkPassive(null);
+            })
+            .finally(() => setLoading(false));
     }, [characterName]);
 
     // 3. 데이터 가공
@@ -403,6 +477,8 @@ export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, 
         const key = normalizeEngravingName(name);
         return (engravingIconMap as Record<string, string>)[key] || "";
     };
+
+
     // 4. 탭별 렌더링 함수 (CharacterCard 방식)
     const renderContent = () => {
         switch (activeTab) {
@@ -630,177 +706,147 @@ export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, 
                                 </div>
                             </section>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
 
-                        {/* 오른쪽: 아크패시브 섹션 */}
-                            <section className="w-full max-w-full overflow-hidden bg-[#0d0d0f] text-zinc-300 p-6 relative overflow-hidden rounded-2xl shadow-2xl border border-white/5 mt-6">
-                                {/* 앰비언트 라이트 */}
-                                <motion.div
-                                    animate={{ backgroundColor: activeArkTab === '진화' ? '#3b82f6' : activeArkTab === '깨달음' ? '#a855f7' : '#f59e0b' }}
-                                    className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[400px] h-[300px] blur-[120px] opacity-[0.07] pointer-events-none transition-colors duration-1000"
-                                />
-
-                                {/* 상단 툴바: 초기화 버튼 배치 */}
-                                <div className="absolute top-8 right-12 z-20">
-                                    <button
-                                        onClick={handleReset}
-                                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 text-zinc-500 hover:text-red-400 transition-all group"
-                                        title="설정 초기화"
-                                    >
-                                        <RotateCcw size={14} className="group-hover:rotate-[-180deg] transition-transform duration-500" />
-                                        <span className="text-[11px] font-bold uppercase tracking-wider">Reset</span>
-                                    </button>
-                                </div>
-
-                                {/* 헤더: 탭 & 포인트 (arkData 기반으로 변경 권장) */}
-                                <div className="relative z-10 flex flex-col items-center gap-4">
-                                    <div className="inline-flex p-1.5 bg-black/40 backdrop-blur-xl rounded-xl border border-white/5 shadow-2xl">
-                                        {['진화', '깨달음', '도약'].map((tab) => (
-                                            <button
-                                                key={tab}
-                                                onClick={() => {
-                                                    const newIndex = ['진화', '깨달음', '도약'].indexOf(tab);
-                                                    const currentIndex = ['진화', '깨달음', '도약'].indexOf(activeArkTab);
-                                                    setPage([newIndex, newIndex > currentIndex ? 1 : -1]);
-                                                    setActiveArkTab(tab as any);
-                                                }}
-                                                className={`relative px-8 py-2 rounded-lg text-xs font-bold transition-all duration-500
-                    ${activeArkTab === tab ? arkTheme[tab as keyof typeof arkTheme].color : 'text-zinc-500 hover:text-zinc-300'}`}
-                                            >
-                                                {activeArkTab === tab && (
-                                                    <motion.div layoutId="activeTabBg" className={`absolute inset-0 ${arkTheme[tab as keyof typeof arkTheme].bg} border-t border-white/10 rounded-lg`} />
-                                                )}
-                                                <span className="relative z-10">{tab}</span>
-                                            </button>
-                                        ))}
+                                {/* [좌측 박스] 아크 그리드 섹션 */}
+                                <section className="bg-[#121213] pt-5 pb-2 px-5 rounded-2xl border border-white/5 shadow-2xl flex flex-col h-fit">
+                                    {/* 타이틀 영역 */}
+                                    <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-1">
+                                        <div className="w-1.5 h-5 bg-blue-950 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
+                                        <h1 className="text-[15px] font-extrabold text-white tracking-tight uppercase">
+                                            아크 그리드
+                                        </h1>
                                     </div>
 
-                                    {/* 포인트 표시: arkData에서 가져오도록 수정 */}
-                                    <div className="flex flex-col items-center">
-                                        <AnimatePresence mode="wait">
-                                            <motion.div key={activeArkTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="flex items-center gap-3">
-                                                <div className="flex items-baseline gap-1.5">
-                        <span className={`text-3xl font-black tracking-tighter ${arkTheme[activeArkTab].color}`}>
-                            {arkData?.Points?.find((p: any) => p.Name === activeArkTab)?.Value || 0}
-                        </span>
-                                                    <span className="text-2xl font-bold text-zinc-700">/</span>
-                                                    <span className="text-2xl font-bold text-zinc-500">{activeArkTab === "진화" ? 140 : activeArkTab === "깨달음" ? 101 : 70}</span>
-                                                </div>
-                                            </motion.div>
-                                        </AnimatePresence>
-                                    </div>
-                                </div>
+                                    {/* 6행 1열 레이아웃 */}
+                                    <div className="flex flex-col gap-0.5 mb-0">
+                                        {arkGrid?.Slots?.map((slot, i) => {
+                                            const nameParts = slot.Name.split(/\s*:\s*/);
+                                            const category = nameParts[0];
+                                            const subName = nameParts[1];
 
-                                {/* 메인 보드 */}
-                                <div className="relative min-h-[400px] w-full max-w-full overflow-hidden">
-                                    <AnimatePresence initial={false} custom={direction} mode="popLayout">
-                                        <motion.div
-                                            key={activeArkTab}
-                                            custom={direction}
-                                            initial={{ x: direction > 0 ? '100%' : '-100%', opacity: 0 }} // 수치 대신 문자열 % 사용 권장
-                                            animate={{ x: 0, opacity: 1 }}
-                                            exit={{ x: direction > 0 ? '-100%' : '100%', opacity: 0 }}
-                                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                                            className="w-full flex flex-col gap-2" // w-full 필수
-                                        >
-                                            {[1, 2, 3, 4, 5].map((tierNum) => {
-                                                const currentClass = character?.CharacterClassName || character?.CharacterClass;
-                                                const nodes = (activeArkTab === '진화' ? MASTER_DATA.EVOLUTION :
-                                                    activeArkTab === '깨달음' ? (MASTER_DATA.ENLIGHTENMENT_BY_CLASS as any)[currentClass] :
-                                                        (MASTER_DATA.LEAP_BY_CLASS as any)[currentClass]) || [];
-                                                const tierNodes = nodes.filter((m: any) => Number(m.tier) === tierNum);
-                                                if (tierNodes.length === 0) return null;
+                                            const rawGrade = (slot.Grade || "").trim();
+                                            let currentGrade = "일반";
+                                            if (rawGrade.includes('고대')) currentGrade = '고대';
+                                            else if (rawGrade.includes('유물')) currentGrade = '유물';
+                                            else if (rawGrade.includes('전설')) currentGrade = '전설';
+                                            else if (rawGrade.includes('영웅')) currentGrade = '영웅';
 
-                                                return (
-                                                    <div key={tierNum} className="flex items-stretch w-full min-h-[115px] group border-b border-white/[0.02] last:border-0">
-                                                        <div className="flex flex-col items-center justify-center w-8 shrink-0">
-                                                            <span className="text-2xl font-black text-zinc-800 group-hover:text-zinc-600 transition-colors">{tierNum}</span>
+                                            const theme = gradeStyles[currentGrade] || gradeStyles['일반'];
+
+                                            return (
+                                                <div key={i}
+                                                     className="relative group flex items-center gap-3 rounded-xl hover:bg-white/[0.04] transition-all h-[62px] cursor-help px-2 pl-0"
+                                                     onMouseEnter={() => {
+                                                         setArkCoreHoverIdx(i);
+                                                         const parsedTooltip = typeof slot.Tooltip === 'string' ? JSON.parse(slot.Tooltip) : slot.Tooltip;
+                                                         setArkCoreHoverData({ core: parsedTooltip, gems: slot.Gems });
+                                                     }}
+                                                     onMouseLeave={() => {
+                                                         setArkCoreHoverIdx(null);
+                                                         setArkCoreHoverData(null);
+                                                     }}
+                                                >
+                                                    {/* 아이콘 영역 */}
+                                                    <div className="relative shrink-0">
+                                                        <div className={`w-12 h-12 rounded-xl p-[2px] transition-all flex items-center justify-center
+                                    bg-gradient-to-br ${theme.bg} overflow-hidden
+                                    border border-[#e9d2a6]/10 shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]`}>
+                                                            <img src={slot.Icon} className="w-full h-full object-contain filter drop-shadow-md" alt="" />
+                                                            {slot.Gems?.length > 0 && (
+                                                                <div className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border border-black/60 flex items-center justify-center shadow-md ${theme.accent}`}>
+                                                                    <div className="w-1 h-1 bg-white rounded-full shadow-[0_0_2px_#fff]"></div>
+                                                                </div>
+                                                            )}
                                                         </div>
 
-                                                        <div className="flex-1 flex justify-center items-center gap-x-1 pl-4 pr-6">
-                                                            {tierNodes.map((node: any) => {
-                                                                /* [수정 1] 원본 대신 시뮬레이션 데이터(arkData)에서 효과 찾기 */
-                                                                const activeEffect = arkData?.Effects?.find((eff: any) =>
-                                                                    eff.Name?.includes(activeArkTab) &&
-                                                                    eff.Description?.replace(/\s+/g, '').includes(node.name.replace(/\s+/g, ''))
-                                                                );
+                                                        {/* 툴팁 모달 (박스 밖으로 표시되도록 z-index 확보) */}
+                                                        {arkCoreHoverIdx === i && arkCoreHoverData && (
+                                                            <div className="absolute left-full top-0 z-[100] pl-3 pointer-events-none">
+                                                                <div className="animate-in fade-in slide-in-from-left-2 duration-200">
+                                                                    <ArkCoreTooltip
+                                                                        data={arkCoreHoverData.core}
+                                                                        Gems={arkCoreHoverData.gems}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
-                                                                /* [수정 2] 레벨 추출 로직 고도화 */
-                                                                const currentLv = activeEffect ? (parseInt(activeEffect.Description.match(/Lv\.(\d+)/)?.[1] || "0")) : 0;
-                                                                const isRealActive = currentLv > 0; // 레벨이 0보다 커야 실제 활성화
-                                                                const progressWidth = (currentLv / Number(node.max)) * 100;
-                                                                const currentTheme = arkTheme[activeArkTab];
-
-                                                                return (
-                                                                    <div key={node.name} className="flex flex-col items-center w-24 shrink-0">
-                                                                        {/* [수정 3] 아이콘: 레벨 0일 때 흑백 처리 */}
-                                                                        <motion.div
-                                                                            animate={{
-                                                                                filter: isRealActive ? "grayscale(0%)" : "grayscale(100%)",
-                                                                                opacity: isRealActive ? 1 : 0.4
-                                                                            }}
-                                                                            whileHover={isRealActive ? { scale: 1.1, y: -5 } : {}}
-                                                                            className={`relative rounded-xl border-2 transition-all duration-500 
-                                                    ${isRealActive ? `cursor-pointer ${currentTheme.border} ${currentTheme.shadow} bg-zinc-900 shadow-2xl`
-                                                                                : 'border-white/5 bg-zinc-950 scale-90'}`}
-                                                                            style={{ width: '40px', height: '40px' }}
-                                                                            onMouseEnter={(e) => isRealActive && setHoverInfo({ effect: activeEffect, rect: e.currentTarget.getBoundingClientRect() })}
-                                                                            onMouseLeave={() => setHoverInfo(null)}
-                                                                        >
-                                                                            <img src={getArkIconUrl(node.iconId, activeArkTab)} className="w-full h-full p-1 object-contain relative z-10" alt="" />
-                                                                            {isRealActive && <div className={`absolute inset-0 blur-lg opacity-40 ${currentTheme.bg}`} />}
-                                                                        </motion.div>
-
-                                                                        <div className="mt-1 text-center w-full group/node">
-                                                                            {/* min-h를 줄이고 mb(마진 바텀)를 음수로 주거나 mt(마진 탑)를 제거하여 밀착시킵니다. */}
-                                                                            <p className={`text-[11px] font-bold leading-tight line-clamp-2 min-h-[22px] ${isRealActive ? 'text-zinc-100' : 'text-zinc-700'}`}>
-                                                                                {node.name}
-                                                                            </p>
-
-                                                                            {/* [수정 4] 레벨 조절기는 항상 표시, 미니바도 0% 상태로 유지 */}
-                                                                            <div className="flex flex-col items-center gap-1">
-                                                                                <div className="flex items-center gap-1.5">
-                                                                                    <button
-                                                                                        onClick={(e) => { e.stopPropagation(); updateLevel(node.name, -1, node.max); }}
-                                                                                        className="w-4 h-4 flex items-center justify-center rounded bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-zinc-400 hover:text-white"
-                                                                                    >
-                                                                                        <span className="text-[10px] font-bold">−</span>
-                                                                                    </button>
-
-                                                                                    <div className="flex items-baseline gap-0.5 min-w-[35px] justify-center">
-                                                                                        <span className={`text-[10px] font-black tracking-tighter ${isRealActive ? currentTheme.color : 'text-zinc-600'}`}>
-                                                                                            LV.{currentLv}
-                                                                                        </span>
-                                                                                        <span className="text-[9px] font-bold text-zinc-800">/</span>
-                                                                                        <span className="text-[9px] font-bold text-zinc-800">{node.max}</span>
-                                                                                    </div>
-
-                                                                                    <button
-                                                                                        onClick={(e) => { e.stopPropagation(); updateLevel(node.name, 1, node.max); }}
-                                                                                        className="w-4 h-4 flex items-center justify-center rounded bg-zinc-800 hover:bg-zinc-700 border border-white/10 text-zinc-400 hover:text-white"
-                                                                                    >
-                                                                                        <span className="text-[10px] font-bold">+</span>
-                                                                                    </button>
-                                                                                </div>
-
-                                                                                <div className="w-12 h-[3px] bg-zinc-800/50 rounded-full overflow-hidden border border-white/5">
-                                                                                    <motion.div
-                                                                                        initial={false}
-                                                                                        animate={{ width: `${progressWidth}%` }}
-                                                                                        className={`h-full ${isRealActive ? currentTheme.bar : 'bg-zinc-700'} rounded-full`}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                    {/* 텍스트 정보 */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className={`text-[10.5px] font-bold leading-tight opacity-80 ${theme.text}`}>
+                                                            {category}
+                                                        </div>
+                                                        <div className={`text-[13px] font-extrabold mt-0.5 truncate ${theme.text}`}>
+                                                            {subName}
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </motion.div>
-                                    </AnimatePresence>
+
+                                                    {/* 포인트 정보 */}
+                                                    <div className="shrink-0 text-right">
+                                    <span className="text-[14px] font-black text-white/90 tracking-tighter">
+                                        {slot.Point}P
+                                    </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+
+                                {/* [우측 박스] 젬 효과 섹션 */}
+                                <section className="bg-[#121213] p-6 rounded-2xl border border-white/5 shadow-2xl flex flex-col h-full">
+                                    {/* 타이틀 영역 */}
+                                    <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-4">
+                                        <div className="w-1.5 h-5 bg-blue-950 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
+                                        <h1 className="text-[15px] font-extrabold text-white tracking-tight uppercase">
+                                            젬 효과
+                                        </h1>
+                                    </div>
+
+                                    {/* 젬 효과 리스트 */}
+                                    <div className="flex flex-col gap-4">
+                                        {arkGrid?.Effects?.map((effect, i) => {
+                                            const cleanText = effect.Tooltip
+                                                .replace(/<[^>]*>?/gm, '')
+                                                .replace(/\s*\+\s*$/, '');
+
+                                            const splitPos = cleanText.lastIndexOf(' +');
+                                            const desc = cleanText.substring(0, splitPos);
+                                            const val = cleanText.substring(splitPos + 1);
+
+                                            return (
+                                                <div key={i} className="flex flex-col gap-1 px-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-zinc-100 font-bold text-[13px]">{effect.Name}</span>
+                                                        <span className="bg-zinc-800/50 px-2 py-0.5 rounded text-zinc-400 text-[10px] font-black tracking-widest uppercase">
+                                        Lv.{effect.Level}
+                                    </span>
+                                                    </div>
+                                                    <div className="text-[12px] text-zinc-400 font-medium leading-relaxed">
+                                                        {desc} <span className="text-[#ffd200] font-bold ml-1">{val}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            </div>
+
+
+                            {/* ===================== 2.5) 아크 패시브 보드 ===================== */}
+                            <section className="mt-10 space-y-4">
+                                <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 text-white">
+                                    <h2 className="text-xl font-bold">아크 패시브</h2>
                                 </div>
+
+                                <ArkPassiveBoard
+                                    character={character}
+                                    data={simArkPassive}
+                                    onChangeData={setSimArkPassive}
+                                    onReset={() => setSimArkPassive(originalArkPassive ? safeClone(originalArkPassive) : null)}
+                                />
                             </section>
 
                             {/*보석*/}
