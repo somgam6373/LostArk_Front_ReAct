@@ -1,7 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Clock, Zap, Sword, Timer, ShieldAlert } from 'lucide-react';
+import { Loader2, Clock, Sword, Timer, ShieldAlert } from 'lucide-react';
+import { SkillTooltip } from '@/components/profile/Tooltip/SkillTooltip';
+import JewelryTooltip from '@/components/profile/Tooltip/JewelryTooltip';
 
-// --- 스킬 특성 요약 데이터 추출 함수 ---
+/* ================= 스타일 및 유틸 ================= */
+const gradeStyles: any = {
+    '일반': { bg: 'from-zinc-800 to-zinc-950', border: 'border-white/10' },
+    '고급': { bg: 'from-[#1a2e1a] to-[#0a0f0a]', border: 'border-[#48c948]/30' },
+    '희귀': { bg: 'from-[#1a2a3e] to-[#0a0d12]', border: 'border-[#00b0fa]/30' },
+    '영웅': { bg: 'from-[#2e1a3e] to-[#120a1a]', border: 'border-[#ce43fb]/30' },
+    '전설': { bg: 'from-[#41321a] to-[#1a120a]', border: 'border-[#f99200]/40' },
+    '유물': { bg: 'from-[#351a0a] to-[#0a0a0a]', border: 'border-[#fa5d00]/50' },
+    '고대': { bg: 'from-[#3d3325] to-[#0f0f10]', border: 'border-[#e9d2a6]/40' },
+    '에스더': { bg: 'from-[#0d2e2e] to-[#050505]', border: 'border-[#2edbd3]/60' }
+};
+
+const cleanHtml = (html: string) => {
+    if (!html) return "";
+    return html.replace(/<br[^>]*>/gi, "\n").replace(/<[^>]*>?/gm, "").replace(/&nbsp;/g, " ").trim();
+};
+
 const getSkillStats = (skills: any[]) => {
     const stats = { counter: 0, stagger: 0, destruction: 0 };
     skills.forEach(skill => {
@@ -13,126 +31,126 @@ const getSkillStats = (skills: any[]) => {
     return stats;
 };
 
-// --- 상단 통계 바 컴포넌트 (높이 축소) ---
+/* ================= 컴포넌트 ================= */
+
 const SkillStatsBar = ({ skills }: { skills: any[] }) => {
     const { counter, stagger, destruction } = getSkillStats(skills);
-
-    const itemClass = "flex items-baseline gap-2 pr-4 border-r border-white/5 last:border-0 last:pr-0";
-    const labelClass = "text-[11px] text-zinc-500 font-bold uppercase tracking-wider";
-    const valueClass = "text-base font-black tracking-tighter text-zinc-200";
-
     return (
         <div className="flex items-center justify-center mb-4 px-4">
             <div className="flex items-center gap-4 px-5 py-2 rounded-xl border border-white/5 bg-white/[0.02] backdrop-blur-sm">
-                <div className={itemClass}>
-                    <span className={labelClass}>카운터</span>
-                    <span className={valueClass}>{counter}</span>
-                </div>
-                <div className={itemClass}>
-                    <span className={labelClass}>무력화</span>
-                    <span className={valueClass}>{stagger}</span>
-                </div>
-                <div className={itemClass}>
-                    <span className={labelClass}>부위 파괴</span>
-                    <span className={valueClass}>{destruction}</span>
-                </div>
+                {[
+                    { label: '카운터', val: counter },
+                    { label: '무력화', val: stagger },
+                    { label: '부위 파괴', val: destruction }
+                ].map((item, idx) => (
+                    <div key={idx} className="flex items-baseline gap-2 pr-4 border-r border-white/5 last:border-0 last:pr-0">
+                        <span className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">{item.label}</span>
+                        <span className="text-base font-black tracking-tighter text-zinc-200">{item.val}</span>
+                    </div>
+                ))}
             </div>
         </div>
     );
 };
 
-// --- 개별 스킬 카드 컴포넌트 ---
-const SkillCard = ({ skill }: { skill: any }) => {
-    const cleanHtml = (html: string) => {
-        if (!html) return "";
-        return html
-            .replace(/<br[^>]*>/gi, "\n")
-            .replace(/<[^>]*>?/gm, "")
-            .replace(/&nbsp;/g, " ")
-            .trim();
-    };
+// ✅ GemItem: 호버 상태를 부모에게 보고하도록 수정
+const GemItem = ({ gem, onHoverChange }: { gem: any, onHoverChange: (isHover: boolean) => void }) => {
+    const [isHover, setIsHover] = useState(false);
+
+    return (
+        <div
+            className="relative flex flex-col items-end gap-0.5"
+            onMouseEnter={() => {
+                setIsHover(true);
+                onHoverChange(true);
+            }}
+            onMouseLeave={() => {
+                setIsHover(false);
+                onHoverChange(false);
+            }}
+        >
+            <div className="relative group/gem cursor-help">
+                <img
+                    src={gem.Icon}
+                    className="w-7 h-7 object-contain drop-shadow-[0_0_3px_rgba(0,0,0,0.5)]"
+                    alt="gem"
+                />
+                <div className="absolute -top-1 -right-1 bg-zinc-900 text-[8px] px-0.5 rounded border border-zinc-700 font-bold text-white">
+                    {gem.Level}
+                </div>
+            </div>
+
+            <div className="flex flex-col items-end leading-none">
+                {gem.Description.map((desc: string, dIdx: number) => {
+                    const isDmg = desc.includes("피해");
+                    return (
+                        <span key={dIdx} className={`text-[9px] font-black tracking-tighter ${isDmg ? 'text-orange-400' : 'text-cyan-400'}`}>
+                            {desc.match(/(\d+\.?\d*%)/)?.[0] || desc}
+                        </span>
+                    );
+                })}
+            </div>
+
+            {isHover && gem.originalData && (
+                <div className="absolute right-full top-0 z-[999] pr-4 pointer-events-none">
+                    <div className="animate-in fade-in zoom-in-95 duration-150">
+                        <JewelryTooltip gemData={gem.originalData} />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const SkillCard = ({ skill, matchedGems }: { skill: any, matchedGems: any[] }) => {
+    const [isGemHovering, setIsGemHovering] = useState(false); // 보석 호버 상태 관리
 
     const sTooltip = JSON.parse(skill.Tooltip || "{}");
-    let cooldown = "";
-    let description = "";
-    let gemEffects: { type: 'damage' | 'cooldown'; value: string; fullText: string }[] = [];
-    let runeEffect = "";
+    let cooldown = "", description = "";
 
-    Object.entries(sTooltip).forEach(([key, el]: [string, any]) => {
+    Object.entries(sTooltip).forEach(([_, el]: [any, any]) => {
         const val = el.value;
         if (!val) return;
-
-        if (el.type === "CommonSkillTitle") {
-            cooldown = cleanHtml(val.leftText);
-        }
-
-        if (el.type === "ItemPartBox") {
-            const title = val.Element_000 || "";
-            const content = val.Element_001 || "";
-
-            if (title.includes("보석")) {
-                const rawEffects = content.split('<BR>');
-                rawEffects.forEach((effStr: string) => {
-                    const text = cleanHtml(effStr);
-                    if (!text) return;
-                    const match = text.match(/(\d+(?:\.\d+)?%)/);
-                    const percentValue = match ? match[1] : "";
-                    if (text.includes("피해") || text.includes("증가")) {
-                        gemEffects.push({ type: 'damage', value: percentValue, fullText: text });
-                    } else if (text.includes("대기시간") || text.includes("감소")) {
-                        gemEffects.push({ type: 'cooldown', value: percentValue, fullText: text });
-                    }
-                });
-            }
-            if (title.includes("룬")) {
-                runeEffect = cleanHtml(content);
-            }
-        }
-
-        if (typeof val === 'string' && val.includes("피해를")) {
-            if (!description) description = cleanHtml(val.split('<BR>')[0]);
-        }
+        if (el.type === "CommonSkillTitle") cooldown = cleanHtml(val.leftText);
+        if (typeof val === 'string' && val.includes("피해를") && !description) description = cleanHtml(val.split('<BR>')[0]);
     });
 
     const selectedTripods = skill.Tripods?.filter((t: any) => t.IsSelected) || [];
+    const rStyle = gradeStyles[skill.Rune?.Grade] || gradeStyles['일반'];
 
     return (
-        <div className="group relative px-3 py-1.5 rounded-xl transition-all duration-200 flex items-center gap-2 w-full z-10 hover:z-[100] hover:bg-white/[0.04] border border-transparent hover:border-white/5">
-
-            {/* 1. 스킬 기본 정보 (너비 압축 180px) */}
-            <div className="flex items-center gap-2.5 w-[180px] shrink-0 min-w-0">
+        <div className="group relative px-3 py-2 rounded-xl transition-all duration-200 flex items-center gap-2 w-full z-10 hover:z-[50] hover:bg-white/[0.04] border border-transparent hover:border-white/5">
+            {/* 1. 스킬 기본 정보 */}
+            <div className="flex items-center gap-2.5 w-[180px] shrink-0">
                 <div className="relative shrink-0">
-                    <img src={skill.Icon} className="w-10 h-10 rounded-lg border border-white/10 shadow-sm" alt="" />
-                    <div className="absolute -bottom-1 -right-1 bg-black/80 px-1 py-0 rounded text-[9px] font-black border border-white/20 text-white backdrop-blur-sm">
+                    <img src={skill.Icon} className="w-10 h-10 rounded-lg border border-zinc-700" alt="" />
+                    <div className="absolute -bottom-1 -right-1 bg-black/80 px-1 py-0 rounded text-[9px] font-black border border-white/20 text-zinc-100 leading-none">
                         {skill.Level}
                     </div>
                 </div>
                 <div className="min-w-0">
-                    <h4 className="text-[13px] font-bold truncate tracking-tight text-zinc-100">{skill.Name}</h4>
+                    <h4 className="text-[13px] font-bold truncate text-zinc-100">{skill.Name}</h4>
                     {cooldown && (
-                        <div className="flex items-center gap-1 mt-0.5 text-zinc-500">
+                        <div className="flex items-center gap-1 text-zinc-500">
                             <Clock size={10} />
-                            <span className="text-[10px] font-medium tracking-tighter truncate">{cooldown.replace("재사용 대기시간 ","").trim()}</span>
+                            <span className="text-[10px] font-medium tracking-tighter truncate">{cooldown.replace("재사용 대기시간 ","")}</span>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* 2. 트라이포드 & 룬 통합 (중앙 정렬) */}
+            {/* 2. 트라이포드 & 룬 */}
             <div className="flex-1 flex items-center justify-start gap-1 min-w-0 px-2 border-l border-white/5">
-                {/* 트라이포드 3개 아이콘 */}
                 <div className="flex gap-1 shrink-0">
-                    {selectedTripods.map((tp: any, ti: number) => (
-                        <div key={ti} className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 p-0.5 shadow-sm">
+                    {selectedTripods.map((tp: any, i: number) => (
+                        <div key={i} className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 p-0.5">
                             <img src={tp.Icon} className="w-full h-full object-contain" alt="" title={tp.Name} />
                         </div>
                     ))}
                 </div>
-
-                {/* 룬 아이콘 (트라이포드와 얇은 경계로 구분) */}
                 <div className="ml-2 pl-2 border-l border-white/5 shrink-0">
                     {skill.Rune ? (
-                        <div className="w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/20 p-0.5 shadow-sm">
+                        <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${rStyle.bg} border ${rStyle.border} p-0.5 shadow-sm`}>
                             <img src={skill.Rune.Icon} className="w-full h-full object-contain" alt="" />
                         </div>
                     ) : (
@@ -141,72 +159,54 @@ const SkillCard = ({ skill }: { skill: any }) => {
                 </div>
             </div>
 
-            {/* 3. 보석 정보 (우측 정렬, 너비 축소 140px) */}
-            <div className="w-[140px] shrink-0 flex flex-wrap justify-end gap-1">
-                {gemEffects.map((gem, gi) => (
-                    <div key={gi} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-black ${
-                        gem.type === 'damage' ? 'text-orange-400 bg-orange-400/10 border border-orange-400/20' : 'text-cyan-400 bg-cyan-400/10 border border-cyan-400/20'
-                    }`}>
-                        {gem.type === 'damage' ? <Sword size={10} /> : <Timer size={10} />}
-                        <span className="tracking-tighter">{gem.value}</span>
-                    </div>
-                ))}
+            {/* 3. 장착 보석 정보 */}
+            <div className="w-[180px] shrink-0 flex justify-end gap-1.5 items-center">
+                {matchedGems && matchedGems.length > 0 ? (
+                    matchedGems.map((gem, i) => (
+                        <GemItem
+                            key={i}
+                            gem={gem}
+                            onHoverChange={(hover) => setIsGemHovering(hover)}
+                        />
+                    ))
+                ) : (
+                    <span className="text-[10px] text-zinc-800 font-bold pr-2">NO GEMS</span>
+                )}
             </div>
 
-            {/* --- 호버 상세 툴팁 --- */}
-            <div className="absolute left-[190px] top-0 w-72 p-4 bg-[#1c1c1e]/fb border border-white/20 rounded-xl shadow-2xl
-                opacity-0 invisible transition-all duration-200 z-[110] pointer-events-none
-                group-hover:opacity-100 group-hover:visible translate-x-2 group-hover:translate-x-0 backdrop-blur-xl">
-                <div className="space-y-3 text-left">
-                    <p className="text-[12px] text-zinc-400 leading-relaxed break-keep border-l-2 border-purple-500 pl-2 italic">
-                        {description || "상세 정보 없음"}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-white/5">
-                        {selectedTripods.map((tp, ti) => (
-                            <span key={ti} className="text-[10px] text-purple-300 font-bold bg-purple-500/5 px-1.5 py-0.5 rounded border border-purple-500/10">
-                                {tp.Name}
-                            </span>
-                        ))}
-                    </div>
-                    {skill.Rune && (
-                        <div className="text-[11px] text-amber-500 font-bold bg-amber-500/5 p-2 rounded border border-amber-500/10">
-                            룬: {skill.Rune.Name}
-                        </div>
-                    )}
-                </div>
-            </div>
+            {/* ✅ 보석을 호버 중이지 않을 때만 스킬 툴팁을 렌더링 */}
+            {!isGemHovering && (
+                <SkillTooltip description={description} selectedTripods={selectedTripods} rune={skill.Rune} />
+            )}
         </div>
     );
 };
 
 export const SkillTab = ({ character }: { character: any }) => {
     const [skills, setSkills] = useState<any[]>([]);
+    const [gems, setGems] = useState<any>(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const fetchSkills = async () => {
-            if (!character?.CharacterName) return;
-            setLoading(true);
-            try {
-                const response = await fetch(`/combat-skills?name=${encodeURIComponent(character.CharacterName)}`);
-                const json = await response.json();
-                const filtered = json
-                    .filter((s: any) => s.SkillType !== 100 && s.SkillType !== 101 && s.Level > 1)
-                    .sort((a: any, b: any) => b.Level - a.Level);
-                setSkills(filtered);
-            } catch (error) {
-                console.error("Fetch Error:", error);
-            } finally {
+        if (!character?.CharacterName) return;
+        setLoading(true);
+
+        Promise.all([
+            fetch(`/combat-skills?name=${encodeURIComponent(character.CharacterName)}`).then(res => res.json()),
+            fetch(`/gems?name=${encodeURIComponent(character.CharacterName)}`).then(res => res.json())
+        ])
+            .then(([skillJson, gemJson]) => {
+                setSkills(skillJson.filter((s: any) => s.SkillType !== 100 && s.Level > 1).sort((a: any, b: any) => b.Level - a.Level));
+                setGems(gemJson);
                 setLoading(false);
-            }
-        };
-        fetchSkills();
+            })
+            .catch(() => setLoading(false));
     }, [character?.CharacterName]);
 
     if (loading) return (
         <div className="py-20 flex flex-col items-center justify-center">
             <Loader2 className="animate-spin text-purple-500 w-8 h-8 mb-4" />
-            <span className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Loading...</span>
+            <span className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">Loading Profile...</span>
         </div>
     );
 
@@ -214,9 +214,23 @@ export const SkillTab = ({ character }: { character: any }) => {
         <section className="mt-4 pb-10">
             <div className="bg-[#0c0c0d] rounded-2xl border border-white/5 p-4 shadow-xl overflow-visible">
                 {skills.length > 0 && <SkillStatsBar skills={skills} />}
+
                 <div className="flex flex-col gap-1 overflow-visible">
                     {skills.length > 0 ? (
-                        skills.map((skill, i) => <SkillCard key={i} skill={skill} />)
+                        skills.map((s, i) => {
+                            const matchedGems = gems?.Effects?.Skills?.filter((gs: any) => gs.Name === s.Name) || [];
+                            const enhancedGems = matchedGems.map((mg: any) => {
+                                const originalGem = gems.Gems.find((g: any) => g.Slot === mg.GemSlot);
+                                return {
+                                    ...mg,
+                                    Icon: originalGem?.Icon,
+                                    Level: originalGem?.Level,
+                                    originalData: originalGem
+                                };
+                            });
+
+                            return <SkillCard key={i} skill={s} matchedGems={enhancedGems} />;
+                        })
                     ) : (
                         <div className="py-20 flex flex-col items-center gap-4 text-zinc-700">
                             <ShieldAlert size={40} strokeWidth={1} />
