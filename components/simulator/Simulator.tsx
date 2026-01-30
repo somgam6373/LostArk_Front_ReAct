@@ -767,6 +767,7 @@ export const Simulator: React.FC<SimulatorProps> = ({ character: propCharacter, 
                                                                     <ArkCoreTooltip
                                                                         data={arkCoreHoverData.core}
                                                                         Gems={arkCoreHoverData.gems}
+                                                                        currentPoint={slot.Point}
                                                                     />
                                                                 </div>
                                                             </div>
