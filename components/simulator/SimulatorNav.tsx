@@ -24,8 +24,6 @@ export const SimulatorNav: React.FC<SimulatorNavProps> = ({
 
     return (
         <div className="flex flex-col gap-2 w-full">
-
-            {/* ✅ 상단: 탭 메뉴 (3개 그리드) - TabNavigation 스타일 적용 */}
             <div className="grid grid-cols-3 gap-1 p-0.5 bg-black/40 rounded-xl border border-white/5">
                 {tabs.map((t) => {
                     const isActive = currentTab === t.key;
@@ -47,13 +45,12 @@ export const SimulatorNav: React.FC<SimulatorNavProps> = ({
                 })}
             </div>
 
-            {/* ✅ 하단: 액션 버튼 섹션 (아이콘 포함) */}
             <div className="flex gap-1.5 mt-1">
                 <button
                     onClick={onGoToProfile}
                     className="group flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-zinc-900/60 text-zinc-500 text-[10px] font-bold rounded-lg border border-white/5 hover:border-zinc-700 hover:text-zinc-300 transition-all active:scale-[0.97]"
                 >
-                    <UserCircle2 size={13} className="group-hover:scale-110 transition-transform" />
+                    <UserCircle2 size={13} className="ㅠgroup-hover:scale-110 transition-transform" />
                     프로필 페이지
                 </button>
 

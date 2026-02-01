@@ -1,26 +1,71 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Loader2, Search } from "lucide-react";
 
-// 컴포넌트 경로 확인 필요
 import { Simulator } from "@/components/simulator/Simulator";
 import { SimulatorCharacterHeader } from "@/components/simulator/SimulatorCharacterHeader";
 import { SimulatorNav, SimTab } from "@/components/simulator/SimulatorNav";
 
 type CharacterLike = any;
 
+const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL ?? "http://localhost:8080";
+
 export const SimulatorPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // ✅ 로직 1: 탭 상태 관리 (Lifting State Up)
     const [tab, setTab] = useState<SimTab>("info");
-
     const nameParam = (searchParams.get("name") ?? "").trim();
     const [input, setInput] = useState<string>(nameParam);
     const [character, setCharacter] = useState<CharacterLike | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+
+    // ✅ [추가] 백엔드 콘솔 확인용 Bulk 요청 로직
+    const sendBulkRequest = useCallback(async () => {
+        if (!nameParam) return;
+
+        try {
+            // 1. 먼저 /do를 호출하여 스킬/트라이포드 정보를 가져옴
+            const doRes = await fetch(`${BACKEND_API_URL}/do?characterName=${encodeURIComponent(nameParam)}`);
+            if (!doRes.ok) return;
+            const skills: any[] = await doRes.json();
+
+            // 2. SynergyRequest 구조로 매핑 (skillName, tripodName)
+            const requests = skills.flatMap((s: any) =>
+                (s.selectedTripods ?? []).map((t: any) => ({
+                    skillName: s.name,
+                    tripodName: t.name
+                }))
+            );
+
+            // 3. /bulk로 POST 요청 (백엔드 콘솔 출력 목적)
+            if (requests.length > 0) {
+                await fetch(`${BACKEND_API_URL}/bulk`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requests)
+                });
+                // 응답은 처리하지 않음 (백엔드 콘솔 확인용)
+            }
+        } catch (e) {
+            console.error("Bulk request failed", e);
+        }
+    }, [nameParam]);
+
+    // ✅ [수정] 탭 변경 핸들러
+    const handleTabChange = (nextTab: SimTab) => {
+        setTab(nextTab);
+        if (nextTab === "result") {
+            sendBulkRequest();
+        }
+    };
+
+    // ✅ [수정] 시뮬레이션 실행 핸들러
+    const handleRunSimulation = () => {
+        setTab("result");
+        sendBulkRequest();
+    };
 
     const shouldShowEmpty = useMemo(() => {
         if (loading) return false;
@@ -32,7 +77,6 @@ export const SimulatorPage: React.FC = () => {
         setInput(nameParam);
     }, [nameParam]);
 
-    // ✅ 데이터 페칭
     useEffect(() => {
         let alive = true;
         const fetchCharacter = async () => {
@@ -63,7 +107,6 @@ export const SimulatorPage: React.FC = () => {
         return () => { alive = false; };
     }, [nameParam]);
 
-    // ✅ 조작 함수들
     const submitSearch = () => {
         const n = input.trim();
         if (!n) return;
@@ -74,8 +117,6 @@ export const SimulatorPage: React.FC = () => {
         if (!character?.CharacterName) return;
         window.location.href = `/profilePage?name=${encodeURIComponent(character.CharacterName)}`;
     };
-
-    // ---------------------- Render ----------------------
 
     if (loading && nameParam) {
         return (
@@ -108,38 +149,33 @@ export const SimulatorPage: React.FC = () => {
 
     return (
         <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full max-w-[1600px] mx-auto px-4 lg:px-0">
-
-            {/* [좌측 구역]: 컨트롤 타워 */}
             <aside className="w-full lg:w-[420px] shrink-0 lg:sticky lg:top-24 h-fit space-y-4">
-                {/* 1. 캐릭터 기본 정보 헤더 */}
                 <div className="bg-zinc-900/60 rounded-[2rem] border border-white/5 overflow-hidden shadow-2xl">
                     <SimulatorCharacterHeader character={character} />
                 </div>
 
-                {/* 2. 네비게이션 바 (좌측 고정) */}
                 <div className="bg-zinc-900/40 rounded-3xl border border-white/5 p-3 backdrop-blur-md shadow-lg">
                     <SimulatorNav
                         currentTab={tab}
-                        onTabChange={setTab}
+                        onTabChange={handleTabChange} // 수정된 핸들러 연결
                         onGoToProfile={goToProfilePage}
-                        onRunSimulation={() => setTab("result")}
+                        onRunSimulation={handleRunSimulation} // 수정된 핸들러 연결
                     />
                 </div>
 
-                {/* 3. 안내 문구 */}
                 <div className="p-5 bg-zinc-900/20 rounded-2xl border border-white/5 text-[11px] text-zinc-500 leading-relaxed">
                     <p>※ 현재 데이터는 로스트아크 API를 기반으로 동기화되었습니다.</p>
                     <p>※ 시뮬레이션 결과는 실제 수치와 약간의 오차가 발생할 수 있습니다.</p>
                 </div>
             </aside>
 
-            {/* [우측 구역]: 메인 콘텐츠 */}
             <main className="flex-1 min-w-0">
                 <div className="bg-zinc-900/40 rounded-[2.5rem] border border-zinc-800/30 p-1 min-h-[600px]">
-                    {/* ✅ 탭 상태(tab)를 Simulator에 넘겨주어 해당 탭 내용만 렌더링하도록 설정 */}
                     <Simulator character={character} activeTab={tab} />
                 </div>
             </main>
         </div>
     );
 };
+
+export default SimulatorPage;
