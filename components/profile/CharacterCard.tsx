@@ -41,19 +41,19 @@ export const CharacterCard: React.FC<{
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-4 lg:gap-2 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full px-4 lg:px-0">
+        <div className="flex flex-col lg:flex-row gap-3 lg:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 w-full px-0 lg:px-0">
 
-            {/* [좌측 구역]: 모바일에서는 상단에 위치 */}
-            <aside className="w-full lg:w-[420px] shrink-0 lg:sticky lg:top-24 h-fit space-y-4 lg:space-y-5">
+            {/* [좌측 구역]: 캐릭터 요약 정보 및 네비게이션 */}
+            <aside className="w-full lg:w-[420px] shrink-0 lg:sticky lg:top-24 h-fit space-y-3 lg:space-y-5">
 
-                {/* 1. 캐릭터 헤더: 모바일에서 너무 커지지 않도록 조정 */}
-                <div className="bg-zinc-900/60 rounded-2xl lg:rounded-3xl border border-zinc-800/50 overflow-hidden shadow-2xl">
+                {/* 1. 캐릭터 헤더 (상단 프로필) */}
+                <div className="bg-zinc-900/60 rounded-none md:rounded-2xl lg:rounded-3xl border-y md:border border-zinc-800/50 overflow-hidden shadow-2xl">
                     <CharacterHeader character={character} />
                 </div>
 
-                {/* 2. 탭 네비게이션: 모바일에서 스티키 처리 (선택 사항) */}
-                {/* z-index를 주어 콘텐츠보다 위로 오게 설정 */}
-                <div className="sticky top-16 lg:static z-30 bg-zinc-900/90 lg:bg-zinc-900/60 backdrop-blur-md lg:backdrop-blur-none rounded-2xl lg:rounded-3xl border border-zinc-800/50 p-2 lg:p-3 shadow-xl">
+                {/* 2. 탭 네비게이션 (모바일에서 매우 중요) */}
+                {/* z-index 40으로 설정하여 다른 요소 위로, 모바일에서는 top-0에 고정 */}
+                <div className="sticky top-0 lg:static z-40 bg-zinc-950/80 lg:bg-zinc-900/60 backdrop-blur-xl lg:backdrop-blur-none border-y md:border border-zinc-800/50 p-1.5 lg:p-3 shadow-xl">
                     <TabNavigation
                         activeTab={activeTab}
                         setActiveTab={setActiveTab}
@@ -64,23 +64,23 @@ export const CharacterCard: React.FC<{
                     />
                 </div>
 
-                {/* 3. 보석 정보: 모바일에서는 탭 아래 혹은 가장 하단에 배치 */}
-                <div className="bg-zinc-900/60 rounded-2xl lg:rounded-3xl border border-zinc-800/50 overflow-hidden shadow-2xl">
+                {/* 3. 보석 정보 (모바일에서는 요약된 정보 노출 권장) */}
+                <div className="bg-zinc-900/60 rounded-none md:rounded-2xl lg:rounded-3xl border-y md:border border-zinc-800/50 overflow-hidden shadow-2xl">
                     <Jewely character={character} />
                 </div>
             </aside>
 
-            {/* [우측 구역]: 메인 콘텐츠 */}
-            <main className="flex-1 min-w-0">
+            {/* [우측 구역]: 메인 콘텐츠 (탭 내용) */}
+            <main className="flex-1 min-w-0 pb-10">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}
-                        /* 모바일에서는 위아래 전환(y), 데스크톱에서는 좌우 전환(x) */
-                        initial={{ opacity: 0, y: 10, x: 0 }}
-                        animate={{ opacity: 1, y: 0, x: 0 }}
-                        exit={{ opacity: 0, y: -10, x: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="min-h-[400px] lg:min-h-[600px]"
+                        /* 모바일에서 빠른 전환을 위해 y축 이동값 축소(10 -> 4) */
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="min-h-[300px] lg:min-h-[600px] px-4 lg:px-0"
                     >
                         {renderContent()}
                     </motion.div>
