@@ -41,7 +41,7 @@ export const SkillTooltip = ({ description, selectedTripods, rune }: SkillToolti
                             </span>
                         ))
                     ) : (
-                        <span className="text-[10px] text-zinc-600">선택된 트라이포드 없음</span>
+                        <span className="text-[10px] text-zinc-600">트라이포드 없음</span>
                     )}
                 </div>
 
