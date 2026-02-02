@@ -142,6 +142,9 @@ function safeClone<T>(v: T): T {
     }
 }
 
+/* =======================
+   ✅ GEM TYPES / CONSTANTS (파일 전역 - 단 한번만 선언)
+   ======================= */
 type GemKind = "홍염" | "멸화" | "겁화" | "작열" | "광휘";
 type GemPick = { kind: GemKind; level: number };
 
@@ -223,7 +226,8 @@ function inferGemKindFromEquippedGem(gem: any): GemKind | null {
     // 2) Tooltip이 있으면 JSON을 문자열로 만들어서 통째로 검색 (필드명이 달라도 잡힘)
     let tooltipText = "";
     try {
-        const t = typeof gem?.Tooltip === "string" ? JSON.parse(gem.Tooltip) : gem?.Tooltip;
+        const t =
+            typeof gem?.Tooltip === "string" ? JSON.parse(gem.Tooltip) : gem?.Tooltip;
         tooltipText = typeof t === "string" ? t : JSON.stringify(t);
     } catch {
         tooltipText = String(gem?.Tooltip || "");
@@ -241,6 +245,9 @@ function inferGemKindFromEquippedGem(gem: any): GemKind | null {
     return null;
 }
 
+/* =======================
+   ✅ EquipmentItem (기존 유지)
+   ======================= */
 const EquipmentItem = ({
                            item,
                            i,
@@ -295,7 +302,9 @@ const EquipmentItem = ({
         >
             <div className="relative shrink-0">
                 <div
-                    className={`p-0.5 rounded-lg border shadow-lg bg-gradient-to-br ${theme.bg} ${theme.border} ${theme.glow || ""}`}
+                    className={`p-0.5 rounded-lg border shadow-lg bg-gradient-to-br ${theme.bg} ${theme.border} ${
+                        theme.glow || ""
+                    }`}
                 >
                     <img
                         src={item.Icon}
@@ -326,8 +335,7 @@ const EquipmentItem = ({
                         onChange={(e) => {
                             const [tier, val] = e.target.value.split("-");
                             const found = REINFORCE_OPTIONS.find(
-                                (opt) =>
-                                    opt.tier === Number(tier) && opt.value === Number(val)
+                                (opt) => opt.tier === Number(tier) && opt.value === Number(val)
                             );
                             if (found) setSelectedOption(found);
                         }}
@@ -478,9 +486,7 @@ const GemSlot = ({
                         />
                     </div>
                 ) : (
-                    <div
-                        className={`${sizeClasses} rounded-full bg-white/5 opacity-10 border border-zinc-800`}
-                    />
+                    <div className={`${sizeClasses} rounded-full bg-white/5 opacity-10 border border-zinc-800`} />
                 )}
 
                 <span className="mt-1 text-zinc-500 text-[11px] font-bold group-hover:text-zinc-300 transition-colors whitespace-nowrap">
@@ -507,9 +513,7 @@ const GemSlot = ({
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="px-3 py-2 border-b border-white/5 flex items-center justify-between">
-                        <div className="text-[12px] font-semibold text-zinc-200">
-                            보석 선택
-                        </div>
+                        <div className="text-[12px] font-semibold text-zinc-200">보석 선택</div>
                         <button
                             type="button"
                             onClick={clearPick}
@@ -522,9 +526,7 @@ const GemSlot = ({
                     <div className="max-h-[240px] overflow-auto">
                         {GEM_KINDS.map((kind) => (
                             <div key={kind} className="px-3 py-2 border-b border-white/5">
-                                <div className="text-[12px] text-zinc-200/90 mb-2">
-                                    {kind}
-                                </div>
+                                <div className="text-[12px] text-zinc-200/90 mb-2">{kind}</div>
                                 <div className="grid grid-cols-5 gap-1.5 pb-1">
                                     {GEM_LEVELS.map((lv) => {
                                         const active = pick?.kind === kind && pick?.level === lv;
@@ -536,9 +538,7 @@ const GemSlot = ({
                                                 className={[
                                                     "h-7 rounded-xl text-[11px] font-semibold",
                                                     "border border-white/10",
-                                                    active
-                                                        ? "bg-white/15 text-white"
-                                                        : "bg-black/20 text-zinc-200/90 hover:bg-white/10",
+                                                    active ? "bg-white/15 text-white" : "bg-black/20 text-zinc-200/90 hover:bg-white/10",
                                                 ].join(" ")}
                                             >
                                                 {lv}
@@ -548,9 +548,7 @@ const GemSlot = ({
                                 </div>
 
                                 {(kind === "겁화" || kind === "작열") && (
-                                    <div className="text-[10px] text-zinc-400 mt-1">
-                                        (4티어: 공격력 증가 합산 대상)
-                                    </div>
+                                    <div className="text-[10px] text-zinc-400 mt-1">(4티어: 공격력 증가 합산 대상)</div>
                                 )}
                             </div>
                         ))}
@@ -582,18 +580,13 @@ const NoCharacterView = ({
                     </div>
                     <div>
                         <h2 className="text-xl font-black text-white">캐릭터 정보가 없습니다.</h2>
-                        <p className="text-sm text-zinc-400 mt-1">
-                            시뮬레이터를 사용하려면 캐릭터를 먼저 검색해 주세요.
-                        </p>
+                        <p className="text-sm text-zinc-400 mt-1">시뮬레이터를 사용하려면 캐릭터를 먼저 검색해 주세요.</p>
                     </div>
                 </div>
 
                 <div className="mt-6 flex gap-2">
                     <div className="flex-1 relative">
-                        <Search
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600"
-                            size={18}
-                        />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600" size={18}/>
                         <input
                             value={name}
                             onChange={(e) => setName(e.target.value)}
@@ -615,9 +608,7 @@ const NoCharacterView = ({
                 </div>
 
                 {error && (
-                    <div className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-                        {error}
-                    </div>
+                    <div className="mt-4 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">{error}</div>
                 )}
             </div>
         </div>
@@ -625,10 +616,7 @@ const NoCharacterView = ({
 };
 
 /* ---------------------- 메인 컴포넌트 ---------------------- */
-export const Simulator: React.FC<SimulatorProps> = ({
-                                                        character: propCharacter,
-                                                        activeTab,
-                                                    }) => {
+export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, activeTab,}) => {
     const location = useLocation();
 
     /** ✅ 우선순위: props > location.state.character > null */
@@ -802,27 +790,108 @@ export const Simulator: React.FC<SimulatorProps> = ({
         return html;
     };
 
+    // ✅ [추가] 젬 효과(추가피해/보스피해/공격력) 레벨을 사용자 입력으로만 변경 가능하게
+    type EditableGemEffectKey = "atk" | "add" | "boss";
+    const GEM_EFFECT_RATE: Record<EditableGemEffectKey, number> = {
+        atk: 0.04,
+        add: 0.08,
+        boss: 0.08,
+    };
+
+    const clampLv = (n: number) => {
+        if (!Number.isFinite(n)) return 0;
+        return Math.min(120, Math.max(0, Math.floor(n)));
+    };
+
+    const isAtkEffect = (name: string) => {
+        const n = (name || "").replace(/\s+/g, "");
+        // "공격력"만 타겟 (무기 공격력 같은 다른 문구는 제외하고 싶으면 아래 조건 유지)
+        return n.includes("공격력") && !n.includes("무기공격력");
+    };
+    const isAddEffect = (name: string) => {
+        const n = (name || "").replace(/\s+/g, "");
+        return n.includes("추가피해") || n.includes("추가피해") || n.includes("추가피해량") || n.includes("추가피해");
+    };
+    const isBossEffect = (name: string) => {
+        const n = (name || "").replace(/\s+/g, "");
+        // "보스 등급 이상 몬스터에게 주는 피해" 계열
+        return n.includes("보스") && (n.includes("피해") || n.includes("몬스터에게주는피해") || n.includes("등급이상"));
+    };
+
+    const getEditableKey = (effectName: string): EditableGemEffectKey | null => {
+        if (isAtkEffect(effectName)) return "atk";
+        if (isAddEffect(effectName)) return "add";
+        if (isBossEffect(effectName)) return "boss";
+        return null;
+    };
+
+    // ✅ 편집 가능한 3종 레벨 상태
+    const [gemEffectLv, setGemEffectLv] = useState<Record<EditableGemEffectKey, number>>({
+        atk: 0,
+        add: 0,
+        boss: 0,
+    });
+
+    // ✅ arkGrid 로딩/변경 시: 서버에서 내려오는 레벨을 초기값으로 세팅(있으면)
+    useEffect(() => {
+        const effects = arkGrid?.Effects ?? [];
+        if (!effects.length) return;
+
+        const next = { ...gemEffectLv };
+
+        for (const e of effects) {
+            const key = getEditableKey(e?.Name || "");
+            if (!key) continue;
+
+            const lv = clampLv(Number((e as any)?.Level ?? 0));
+            next[key] = lv;
+        }
+
+        // 실제로 값이 달라졌을 때만 set
+        if (next.atk !== gemEffectLv.atk || next.add !== gemEffectLv.add || next.boss !== gemEffectLv.boss) {
+            setGemEffectLv(next);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [arkGrid]);
+
+    const gemEffectValuePct = (key: EditableGemEffectKey, lv: number) => {
+        const pct = clampLv(lv) * (GEM_EFFECT_RATE[key] ?? 0);
+        return `${pct.toFixed(2)}%`;
+    };
+
+    const parseEffectTooltipLine = (rawTooltip: string) => {
+        const text = String(rawTooltip || "")
+            .replace(/<[^>]*>?/gm, "")
+            .replace(/\s*\+\s*$/, "");
+        const splitPos = text.lastIndexOf(" +");
+        if (splitPos === -1) return { desc: text, val: "" };
+        const desc = text.substring(0, splitPos);
+        const val = text.substring(splitPos + 1);
+        return { desc, val };
+    };
+
+    const handleGemEffectLvChange = (key: EditableGemEffectKey, nextRaw: string) => {
+        // 빈칸 허용: 입력 중일 땐 0으로 보이게
+        const n = nextRaw === "" ? 0 : clampLv(Number(nextRaw));
+        setGemEffectLv((prev) => ({ ...prev, [key]: n }));
+    };
+
+    const handleLvKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+    };
+
+
     // 2. 데이터 로딩
     useEffect(() => {
         if (!characterName) return;
 
         setLoading(true);
         Promise.all([
-            fetch(`/equipment?name=${encodeURIComponent(characterName)}`).then((r) =>
-                r.json()
-            ),
-            fetch(`/arkgrid?name=${encodeURIComponent(characterName)}`).then((r) =>
-                r.json()
-            ),
-            fetch(`/gems?name=${encodeURIComponent(characterName)}`).then((r) =>
-                r.json()
-            ),
-            fetch(`/engravings?name=${encodeURIComponent(characterName)}`).then((r) =>
-                r.json()
-            ),
-            fetch(`/arkpassive?name=${encodeURIComponent(characterName)}`).then((r) =>
-                r.json()
-            ),
+            fetch(`/equipment?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/arkgrid?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/gems?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/engravings?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
+            fetch(`/arkpassive?name=${encodeURIComponent(characterName)}`).then((r) => r.json()),
         ])
             .then(([eqData, arkData2, gemData, engData, passiveData]) => {
                 setEquipments(Array.isArray(eqData) ? eqData : []);
@@ -1347,28 +1416,66 @@ export const Simulator: React.FC<SimulatorProps> = ({
                                         </h1>
                                     </div>
 
-                                    {/* 젬 효과 리스트 */}
+                                    {/* ✅ 젬 효과 리스트 */}
                                     <div className="flex flex-col gap-4">
                                         {arkGrid?.Effects?.map((effect, i) => {
+                                            const { desc, val } = parseEffectTooltipLine(effect.Tooltip);
+                                            const editableKey = getEditableKey(effect.Name || "");
+                                            const isEditable = Boolean(editableKey);
                                             const cleanText = effect.Tooltip
                                                 .replace(/<[^>]*>?/gm, '')
                                                 .replace(/\s*\+\s*$/, '');
-
-                                            const splitPos = cleanText.lastIndexOf(' +');
-                                            const desc = cleanText.substring(0, splitPos);
-                                            const val = cleanText.substring(splitPos + 1);
-
+                                            const shownLv = isEditable && editableKey ? gemEffectLv[editableKey] : effect.Level;
+                                            const shownVal =
+                                                isEditable && editableKey ? gemEffectValuePct(editableKey, gemEffectLv[editableKey]) : val;
                                             return (
                                                 <div key={i} className="flex flex-col gap-1 px-1">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-zinc-100 font-bold text-[13px]">{effect.Name}</span>
-                                                        <span className="bg-zinc-800/50 px-2 py-0.5 rounded text-zinc-400 text-[10px] font-black tracking-widest uppercase">
-                                        Lv.{effect.Level}
-                                    </span>
+
+                                                        {/* ✅ 여기: 추가피해/보스피해/공격력만 레벨 입력 가능 */}
+                                                        {isEditable && editableKey ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-zinc-400 font-black tracking-widest uppercase">Lv.</span>
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={120}
+                                                                    value={gemEffectLv[editableKey]}
+                                                                    onChange={(e) => handleGemEffectLvChange(editableKey, e.target.value)}
+                                                                    onKeyDown={handleLvKeyDown}
+                                                                    onWheel={(e) => {
+                                                                        // 스크롤로 숫자 튀는거 방지(원하면 제거)
+                                                                        (e.currentTarget as HTMLInputElement).blur();
+                                                                    }}
+                                                                    className="w-[68px] h-[22px] rounded-md bg-zinc-950/40 border border-zinc-700 text-zinc-200 text-[11px] font-black text-center outline-none focus:border-indigo-500/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                />
+                                                                <span className="text-[10px] text-zinc-500 font-bold">/ 120</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="bg-zinc-800/50 px-2 py-0.5 rounded text-zinc-400 text-[10px] font-black tracking-widest uppercase">
+                                Lv.{shownLv}
+                              </span>
+                                                        )}
                                                     </div>
+
+                                                    {/* ✅ 바로 아래 값: 레벨 변경 즉시 반영 */}
                                                     <div className="text-[12px] text-zinc-400 font-medium leading-relaxed">
-                                                        {desc} <span className="text-[#ffd200] font-bold ml-1">{val}</span>
+                                                        {desc}{" "}
+                                                        <span className="text-[#ffd200] font-bold ml-1">{shownVal}</span>
                                                     </div>
+
+                                                    {/* (선택) 편집 대상이면, 어떤 규칙인지 작은 힌트 */}
+                                                    {isEditable && editableKey && (
+                                                        <div className="text-[10px] text-zinc-500 mt-0.5">
+                                                            1레벨당{" "}
+                                                            {editableKey === "atk"
+                                                                ? `공격력 +${GEM_EFFECT_RATE.atk.toFixed(2)}%`
+                                                                : editableKey === "add"
+                                                                    ? `추가 피해 +${GEM_EFFECT_RATE.add.toFixed(2)}%`
+                                                                    : `보스 피해 +${GEM_EFFECT_RATE.boss.toFixed(2)}%`}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
@@ -1386,9 +1493,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
                                     character={character}
                                     data={simArkPassive}
                                     onChangeData={setSimArkPassive}
-                                    onReset={() =>
-                                        setSimArkPassive(originalArkPassive ? safeClone(originalArkPassive) : null)
-                                    }
+                                    onReset={() => setSimArkPassive(originalArkPassive ? safeClone(originalArkPassive) : null)}
                                 />
                             </section>
 
@@ -1397,26 +1502,23 @@ export const Simulator: React.FC<SimulatorProps> = ({
                                 <div className="w-full max-w-3xl flex items-center justify-between border-b border-zinc-800/50 pb-2 mb-4">
                                     <div className="flex items-center gap-2">
                                         <div className="w-1 h-4 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-                                        <h1 className="text-base font-extrabold text-zinc-200 tracking-tight uppercase">
-                                            보석
-                                        </h1>
+                                        <h1 className="text-base font-extrabold text-zinc-200 tracking-tight uppercase">보석</h1>
                                     </div>
 
                                     <div className="flex items-center gap-2.5 px-3 py-1.5 backdrop-blur-sm">
                                         <div className="ml-2 flex items-center gap-2 pl-2 border-l border-white/10">
                                             <div className="w-1 h-3 bg-rose-400 rounded-full" />
-                                                <span className="text-[12px] text-[#efeff0] font-semibold leading-none">
-                                                    기본 공격력 합: +{formatPct(totalGemAtkBonus)}
-                                                </span>
-                                            </div>
+                                            <span className="text-[12px] text-[#efeff0] font-semibold leading-none">
+                        기본 공격력 합: +{formatPct(totalGemAtkBonus)}
+                      </span>
                                         </div>
                                     </div>
+                                </div>
 
                                 <div
                                     className="relative w-full max-w-2xl rounded-[40px] border border-white/5 flex items-center justify-center min-h-[280px] md:min-h-[280px] overflow-visible shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
                                     style={{
-                                        background:
-                                            "radial-gradient(circle at center, #1a202c 0%, #0d1117 40%, #05070a 100%)",
+                                        background: "radial-gradient(circle at center, #1a202c 0%, #0d1117 40%, #05070a 100%)",
                                     }}
                                 >
                                     <div className="absolute inset-0 z-0 pointer-events-none rounded-[40px] overflow-hidden">
@@ -1540,9 +1642,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
                             <section className="bg-[#121213] rounded-xl border border-white/5 p-6 shadow-2xl">
                                 <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-2 mb-2">
                                     <div className="w-1.5 h-5 bg-blue-950 rounded-full" />
-                                    <h1 className="text-base font-extrabold text-white tracking-tight uppercase">
-                                        활성 각인
-                                    </h1>
+                                    <h1 className="text-base font-extrabold text-white tracking-tight uppercase">활성 각인</h1>
                                 </div>
 
                                 <div className="flex flex-col gap-0.5">
@@ -1582,16 +1682,12 @@ export const Simulator: React.FC<SimulatorProps> = ({
                                                             className="text-[#f16022] fill-[#f16022] drop-shadow-[0_0_5px_rgba(241,96,34,0.5)]"
                                                         />
                                                         <span className="text-[#a8a8a8] text-sm font-medium">x</span>
-                                                        <span className="text-white text-base font-bold leading-none tabular-nums">
-                              {n}
-                            </span>
+                                                        <span className="text-white text-base font-bold leading-none tabular-nums">{n}</span>
                                                     </div>
 
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className="relative min-w-0">
-                              <span className="text-[#efeff0] font-bold text-[14px] tracking-tight truncate">
-                                {eng.Name}
-                              </span>
+                                                            <span className="text-[#efeff0] font-bold text-[14px] tracking-tight truncate">{eng.Name}</span>
 
                                                             {engrHoverIdx === i && engrHoverDesc && (
                                                                 <div
@@ -1609,9 +1705,7 @@ export const Simulator: React.FC<SimulatorProps> = ({
                                                                                 <img src={iconUrl} alt="" className="w-full h-full object-cover" />
                                                                             </div>
                                                                             <div className="min-w-0">
-                                                                                <div className="text-[13px] font-black text-white mb-1 truncate">
-                                                                                    {engrHoverName}
-                                                                                </div>
+                                                                                <div className="text-[13px] font-black text-white mb-1 truncate">{engrHoverName}</div>
                                                                                 <div
                                                                                     className="text-[12px] leading-relaxed text-zinc-200"
                                                                                     dangerouslySetInnerHTML={{
@@ -1627,16 +1721,10 @@ export const Simulator: React.FC<SimulatorProps> = ({
 
                                                         {m > 0 && (
                                                             <div className="flex items-center gap-1.5 ml-2">
-                                                                <img
-                                                                    src={stoneIcon}
-                                                                    alt="Stone"
-                                                                    className="w-4 h-5 object-contain brightness-125"
-                                                                />
+                                                                <img src={stoneIcon} alt="Stone" className="w-4 h-5 object-contain brightness-125" />
                                                                 <div className="flex items-baseline gap-0.5">
                                                                     <span className="text-[#5e666f] text-[11px] font-bold">Lv.</span>
-                                                                    <span className="text-[#00ccff] text-[17px] font-black">
-                                    {m}
-                                  </span>
+                                                                    <span className="text-[#00ccff] text-[17px] font-black">{m}</span>
                                                                 </div>
                                                             </div>
                                                         )}
