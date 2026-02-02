@@ -549,8 +549,9 @@ const ENLIGHTENMENT_BY_CLASS: Record<string, any[]> = {
         { name: "죽음 연마", iconId: "se_6", max: 3, tier: 2 },
 
         // 3티어
-        { name: "집행 강화", iconId: "01_11", max: 3, tier: 3 },
+
         { name: "영혼 증폭", iconId: "se_3", max: 5, tier: 3 },
+        { name: "집행 강화", iconId: "01_11", max: 3, tier: 3 },
         { name: "허물어진 경계", iconId: "01_19", max: 3, tier: 3 },
         { name: "영혼 강화", iconId: "01_18", max: 5, tier: 3 },
 
