@@ -1224,7 +1224,7 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                                                                             <div className="flex items-center">
                                                                                 <input
                                                                                     type="number"
-                                                                                    className="bg-transparent text-[11px] text-white font-bold w-6 outline-none text-right pb-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                                    className="bg-transparent text-[11px] text-white font-bo ld w-6 outline-none text-right pb-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                                     defaultValue={displayPercentage}
                                                                                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                                                                         if (e.key === 'Enter') {
@@ -1344,24 +1344,35 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
 
                                             const theme = gradeStyles[currentGrade] || gradeStyles['일반'];
 
+                                            // 모달 열기/닫기 핸들러
+                                            const handleRowClick = (e: React.MouseEvent) => {
+                                                // select 박스를 클릭했을 때는 모달이 열리지 않도록 방어 코드 추가 가능
+                                                if ((e.target as HTMLElement).closest('select')) return;
+
+                                                if (arkCoreHoverIdx === i) {
+                                                    setArkCoreHoverIdx(null);
+                                                    setArkCoreHoverData(null);
+                                                } else {
+                                                    setArkCoreHoverIdx(i);
+                                                    const parsedTooltip = typeof slot.Tooltip === 'string' ? JSON.parse(slot.Tooltip) : slot.Tooltip;
+                                                    setArkCoreHoverData({ core: parsedTooltip, gems: slot.Gems });
+                                                }
+                                            };
                                             return (
-                                                <div key={i}
-                                                     className="relative group flex items-center gap-3 rounded-xl hover:bg-white/[0.04] transition-all h-[62px] cursor-help px-2 pl-0"
-                                                     onMouseEnter={() => {
-                                                         setArkCoreHoverIdx(i);
-                                                         const parsedTooltip = typeof slot.Tooltip === 'string' ? JSON.parse(slot.Tooltip) : slot.Tooltip;
-                                                         setArkCoreHoverData({ core: parsedTooltip, gems: slot.Gems });
-                                                     }}
-                                                     onMouseLeave={() => {
-                                                         setArkCoreHoverIdx(null);
-                                                         setArkCoreHoverData(null);
-                                                     }}
+                                                <div
+                                                    key={i}
+                                                    // 1. 전체 열에 클릭 이벤트 등록 및 커서 변경
+                                                    onClick={handleRowClick}
+                                                    className={`relative group flex items-center gap-3 rounded-xl transition-all h-[62px] px-2 pl-0 cursor-pointer
+                ${arkCoreHoverIdx === i ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
                                                 >
-                                                    {/* 아이콘 영역 */}
+                                                    {/* 아이콘 영역: 이제 부모가 클릭을 담당하므로 onClick 제거 */}
                                                     <div className="relative shrink-0">
                                                         <div className={`w-12 h-12 rounded-xl p-[2px] transition-all flex items-center justify-center
-                                    bg-gradient-to-br ${theme.bg} overflow-hidden
-                                    border border-[#e9d2a6]/10 shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]`}>
+                    bg-gradient-to-br ${theme.bg} overflow-hidden
+                    border ${arkCoreHoverIdx === i ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'border-[#e9d2a6]/10'} 
+                    shadow-[inset_0_0_10px_rgba(0,0,0,0.5)] active:scale-95`}
+                                                        >
                                                             <img src={slot.Icon} className="w-full h-full object-contain filter drop-shadow-md" alt="" />
                                                             {slot.Gems?.length > 0 && (
                                                                 <div className={`absolute bottom-1 right-1 w-3.5 h-3.5 rounded-full border border-black/60 flex items-center justify-center shadow-md ${theme.accent}`}>
@@ -1369,20 +1380,25 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                                                                 </div>
                                                             )}
                                                         </div>
-
-                                                        {/* 툴팁 모달 (박스 밖으로 표시되도록 z-index 확보) */}
-                                                        {arkCoreHoverIdx === i && arkCoreHoverData && (
-                                                            <div className="absolute left-full top-0 z-[100] pl-3 pointer-events-none">
-                                                                <div className="animate-in fade-in slide-in-from-left-2 duration-200">
-                                                                    <ArkCoreTooltip
-                                                                        data={arkCoreHoverData.core}
-                                                                        Gems={arkCoreHoverData.gems}
-                                                                        currentPoint={slot.Point}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        )}
                                                     </div>
+
+                                                    {/* 2. 모달 위치: 열(Row) 전체를 기준으로 아이콘 옆에 고정 */}
+                                                    {/* 2. 모달 위치: 행(Row) 전체의 오른쪽 끝(left-full)에 고정 */}
+                                                    {arkCoreHoverIdx === i && arkCoreHoverData && (
+                                                        <div
+                                                            className="absolute left-full ml-4 top-0 z-[100] pointer-events-auto"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {/* 애니메이션: 오른쪽에서 나타나는 효과 */}
+                                                            <div className="animate-in fade-in slide-in-from-left-4 duration-200">
+                                                                <ArkCoreTooltip
+                                                                    data={arkCoreHoverData.core}
+                                                                    Gems={arkCoreHoverData.gems}
+                                                                    currentPoint={slot.Point}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
 
                                                     {/* 텍스트 정보 */}
                                                     <div className="flex-1 min-w-0">
@@ -1394,17 +1410,55 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                                                         </div>
                                                     </div>
 
-                                                    {/* 포인트 정보 */}
-                                                    <div className="shrink-0 text-right">
-                                    <span className="text-[14px] font-black text-white/90 tracking-tighter">
-                                        {slot.Point}P
-                                    </span>
+                                                    {/* 포인트 정보 (Select) */}
+                                                    <div className="shrink-0 text-right group/point relative">
+                                                        {/* select 클릭 시 부모의 rowClick이 발생하지 않도록 stopPropagation 적용 */}
+                                                        <div className="flex items-center group/point" onClick={(e) => e.stopPropagation()}>
+                                                            <div className="relative flex items-center">
+                                                                <select
+                                                                    className="bg-white/5 border border-white/10 rounded-md
+                            text-[13px] font-black text-white/90
+                            outline-none cursor-pointer appearance-none text-center
+                            w-12 h-7
+                            hover:bg-white/10 hover:border-[#FFD200]/50
+                            focus:border-[#FFD200] focus:ring-1 focus:ring-[#FFD200]/30
+                            transition-all duration-200
+                            group-hover/point:text-[#FFD200]
+                            [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                                                    value={slot.Point}
+                                                                    onChange={(e) => {
+                                                                        const newPoint = parseInt(e.target.value);
+                                                                        const updatedSlots = [...arkGrid.Slots];
+                                                                        updatedSlots[i] = { ...updatedSlots[i], Point: newPoint };
+                                                                        setArkGrid({ ...arkGrid, Slots: updatedSlots });
+                                                                    }}
+                                                                >
+                                                                    {Array.from({ length: 21 }, (_, idx) => 20 - idx).map((num) => (
+                                                                        <option key={num} value={num} className="bg-[#1a1a1b] text-white">
+                                                                            {num}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                                <div className="absolute right-1.5 pointer-events-none opacity-40 group-hover/point:opacity-100 group-hover/point:text-[#FFD200]">
+                                                                    <svg className="w-2 h-2 fill-current" viewBox="0 0 20 20">
+                                                                        <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 </section>
+
+
+
+
+
+
+
 
                                 {/* [우측 박스] 젬 효과 섹션 */}
                                 <section className="bg-[#121213] p-6 rounded-2xl border border-white/5 shadow-2xl flex flex-col h-full">
