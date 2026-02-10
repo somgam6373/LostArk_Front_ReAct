@@ -604,27 +604,6 @@ export const ResultTab: React.FC<{
                             </div>
                         )}
                     </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-                            <div className="text-[11px] font-black text-zinc-400">총 기대 피해량</div>
-                            <div className="mt-1 text-xl font-black text-white">
-                                {formatKoreanNumber(totalExpectedDamage)}
-                            </div>
-                        </div>
-
-                        <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-                            <div className="text-[11px] font-black text-zinc-400">평균 DPS(임시)</div>
-                            <div className="mt-1 text-xl font-black text-emerald-300">
-                                {formatKoreanNumber(avgDps)}
-                            </div>
-                        </div>
-
-                        <div className="px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10">
-                            <div className="text-[11px] font-black text-zinc-400">스킬 개수</div>
-                            <div className="mt-1 text-xl font-black text-white">{skills.length}</div>
-                        </div>
-                    </div>
                 </div>
             </section>
 
@@ -668,8 +647,8 @@ export const ResultTab: React.FC<{
                                                             {s.name}
                                                         </div>
                                                         <span className="text-[11px] text-zinc-500 font-bold shrink-0">
-                              {s.cooldownSec.toFixed(2)}s
-                            </span>
+                                                            {s.cooldownSec.toFixed(2)}s
+                                                        </span>
                                                     </div>
 
                                                     <div className="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
@@ -730,20 +709,6 @@ export const ResultTab: React.FC<{
                                             <div className="text-[11px] font-black text-zinc-500">기대 피해량</div>
                                             <div className="text-[16px] font-black text-white mt-0.5">
                                                 {formatKoreanNumber(selectedSkill.expectedDamage)}
-                                            </div>
-                                        </div>
-
-                                        <div className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
-                                            <div className="text-[11px] font-black text-zinc-500">쿨타임</div>
-                                            <div className="text-[16px] font-black text-white mt-0.5">
-                                                {selectedSkill.cooldownSec.toFixed(2)}s
-                                            </div>
-                                        </div>
-
-                                        <div className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
-                                            <div className="text-[11px] font-black text-zinc-500">DPS</div>
-                                            <div className="text-[16px] font-black text-emerald-300 mt-0.5">
-                                                {formatKoreanNumber(selectedSkill.expectedDps)}
                                             </div>
                                         </div>
                                     </div>
