@@ -17,6 +17,7 @@ type CharacterInfoCompat = CharacterInfo & { CharacterName?: string };
 interface SimulatorProps {
     character?: CharacterInfoCompat | null;
     activeTab: SimTab;
+    onEquipmentUpdate: (partName: string, data: any) => void;
 }
 
 interface EquipmentItemProps {
@@ -31,6 +32,7 @@ interface EquipmentItemProps {
     REINFORCE_OPTIONS: Array<{ label: string; value: number; tier: number }>;
     setHoveredIndex: (idx: number | null) => void;
     setHoveredData: (data: any) => void;
+    onUpdate: (partName: string, data: any) => void;
 }
 
 interface ArkEffect {
@@ -248,6 +250,7 @@ function inferGemKindFromEquippedGem(gem: any): GemKind | null {
 /* =======================
    ✅ EquipmentItem (기존 유지)
    ======================= */
+// EquipmentItemProps 인터페이스에 onUpdate 추가 필요
 const EquipmentItem = ({
                            item,
                            i,
@@ -260,29 +263,46 @@ const EquipmentItem = ({
                            REINFORCE_OPTIONS,
                            setHoveredIndex,
                            setHoveredData,
-                       }: EquipmentItemProps) => {
+                           onUpdate, // ✅ 추가: 부모에게 상태를 전달할 콜백
+                       }: any) => {
     const [localQuality, setLocalQuality] = useState(quality);
     const [localAdv, setLocalAdv] = useState(advancedReinforce);
-
     const [selectedOption, setSelectedOption] = useState(() => {
         const level = reinforceLevel.replace("+", "");
         return (
-            REINFORCE_OPTIONS.find((opt) => String(opt.value) === level) ||
+            REINFORCE_OPTIONS.find((opt: any) => String(opt.value) === level) ||
             REINFORCE_OPTIONS[0]
         );
     });
 
+    // ✅ 추가: 값이 변경될 때마다 부모(Simulator)로 데이터 전달
+    useEffect(() => {
+        onUpdate(itemName, {
+            quality: Number(localQuality),
+            level: selectedOption.value,
+            tier: selectedOption.tier,
+            advancedReinforce: Number(localAdv)
+        });
+    }, [localQuality, localAdv, selectedOption, itemName, onUpdate]);
+
     useEffect(() => {
         const level = reinforceLevel.replace("+", "");
-        const found = REINFORCE_OPTIONS.find((opt) => String(opt.value) === level);
+        const found = REINFORCE_OPTIONS.find((opt: any) => String(opt.value) === level);
 
         if (found) {
-            setLocalQuality(quality);
-            setLocalAdv(advancedReinforce);
-            setSelectedOption(found);
+            // 현재 로컬 상태와 부모의 원본 props가 다를 때만 업데이트 (덮어쓰기 방지)
+            // 만약 사용자가 수정한 상태라면 이 조건문은 실행되지 않습니다.
+            setLocalQuality((prev: any) => (prev !== quality ? quality : prev));
+            setLocalAdv((prev: any) => (prev !== advancedReinforce ? advancedReinforce : prev));
+
+            setSelectedOption((prev: any) => {
+                if (prev.value === found.value && prev.tier === found.tier) return prev;
+                return found;
+            });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reinforceLevel, quality, advancedReinforce]);
+// REINFORCE_OPTIONS는 배열이므로 의존성에 넣으면 매번 실행될 수 있어 제외하거나 useMemo 처리가 필요합니다.
 
     const handleKeyDown = (e: any) => {
         if (e.key === "Enter") e.currentTarget.blur();
@@ -290,62 +310,39 @@ const EquipmentItem = ({
 
     return (
         <div
-            onMouseEnter={() => {
-                setHoveredIndex(i);
-                setHoveredData(tooltip);
-            }}
-            onMouseLeave={() => {
-                setHoveredIndex(null);
-                setHoveredData(null);
-            }}
+            onMouseEnter={() => { setHoveredIndex(i); setHoveredData(tooltip); }}
+            onMouseLeave={() => { setHoveredIndex(null); setHoveredData(null); }}
             className="relative group flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors h-[62px] cursor-help"
         >
             <div className="relative shrink-0">
-                <div
-                    className={`p-0.5 rounded-lg border shadow-lg bg-gradient-to-br ${theme.bg} ${theme.border} ${
-                        theme.glow || ""
-                    }`}
-                >
-                    <img
-                        src={item.Icon}
-                        className="w-10 h-10 rounded-md object-cover bg-black/20"
-                        alt={itemName}
-                    />
+                <div className={`p-0.5 rounded-lg border shadow-lg bg-gradient-to-br ${theme.bg} ${theme.border} ${theme.glow || ""}`}>
+                    <img src={item.Icon} className="w-10 h-10 rounded-md object-cover bg-black/20" alt={itemName} />
                 </div>
                 <input
                     type="number"
                     min="0"
                     max="100"
-                    value={localQuality as any}
+                    value={localQuality}
                     onChange={(e) => setLocalQuality(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className={`absolute -bottom-1 -right-1 w-7 px-0.5 rounded-md text-[10px] font-black border border-zinc-700 bg-zinc-900 text-center focus:outline-none focus:ring-1 focus:ring-yellow-500
-                    ${getQualityColor(Number(localQuality))} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors`}
+                    className={`absolute -bottom-1 -right-1 w-7 px-0.5 rounded-md text-[10px] font-black border border-zinc-700 bg-zinc-900 text-center focus:outline-none focus:ring-1 focus:ring-yellow-500 ${getQualityColor(Number(localQuality))} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors`}
                 />
             </div>
 
             <div className="flex-1 min-w-0">
-                <h3 className={`font-bold text-[12px] truncate mb-1 ${theme.text}`}>
-                    {itemName}
-                </h3>
+                <h3 className={`font-bold text-[12px] truncate mb-1 ${theme.text}`}>{itemName}</h3>
                 <div className="flex items-center gap-2">
                     <select
                         className="bg-zinc-800 text-white/70 text-[10px] px-2 py-0.5 rounded border border-zinc-700 focus:outline-none focus:border-blue-500 appearance-none cursor-pointer scrollbar-hide"
                         value={`${selectedOption.tier}-${selectedOption.value}`}
                         onChange={(e) => {
                             const [tier, val] = e.target.value.split("-");
-                            const found = REINFORCE_OPTIONS.find(
-                                (opt) => opt.tier === Number(tier) && opt.value === Number(val)
-                            );
+                            const found = REINFORCE_OPTIONS.find((opt: any) => opt.tier === Number(tier) && opt.value === Number(val));
                             if (found) setSelectedOption(found);
                         }}
                     >
-                        {REINFORCE_OPTIONS.map((opt) => (
-                            <option
-                                key={`${opt.tier}-${opt.value}`}
-                                value={`${opt.tier}-${opt.value}`}
-                                className="bg-zinc-900 text-white"
-                            >
+                        {REINFORCE_OPTIONS.map((opt: any) => (
+                            <option key={`${opt.tier}-${opt.value}`} value={`${opt.tier}-${opt.value}`} className="bg-zinc-900 text-white">
                                 {opt.label}
                             </option>
                         ))}
@@ -357,7 +354,7 @@ const EquipmentItem = ({
                             type="number"
                             min="0"
                             max="20"
-                            value={localAdv as any}
+                            value={localAdv}
                             onChange={(e) => setLocalAdv(e.target.value)}
                             onKeyDown={handleKeyDown}
                             className="w-5 bg-transparent text-sky-400 text-[10px] font-bold focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none text-center"
@@ -616,7 +613,7 @@ const NoCharacterView = ({
 };
 
 /* ---------------------- 메인 컴포넌트 ---------------------- */
-export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, activeTab,}) => {
+export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, activeTab, onEquipmentUpdate}) => {
     const location = useLocation();
 
     /** ✅ 우선순위: props > location.state.character > null */
@@ -1161,6 +1158,8 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                             {/* 왼쪽: 장비 섹션 */}
                             <section className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 items-stretch bg-[#121213] p-5 rounded-2xl border border-white/5">
                                 {/* 왼쪽: 전투 장비 Section */}
+
+
                                 <div className="w-full lg:w-[40%] flex flex-col shrink-0">
                                     <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-4">
                                         <div className="w-1.5 h-5 bg-blue-950 rounded-full" />
@@ -1234,6 +1233,7 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                                                         REINFORCE_OPTIONS={REINFORCE_OPTIONS}
                                                         setHoveredIndex={setHoveredIndex}
                                                         setHoveredData={setHoveredData}
+                                                        onUpdate={onEquipmentUpdate}
                                                     />
                                                 );
                                             })}
@@ -1481,6 +1481,9 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                                             })}
                                     </div>
                                 </div>
+
+
+
                             </section>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -1854,102 +1857,110 @@ export const Simulator: React.FC<SimulatorProps> = ({character: propCharacter, a
                             </section>
 
                             {/*각인*/}
-                            <section className="bg-[#121213] rounded-xl border border-white/5 p-6 shadow-2xl">
-                                <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-2 mb-2">
-                                    <div className="w-1.5 h-5 bg-blue-950 rounded-full" />
-                                    <h1 className="text-base font-extrabold text-white tracking-tight uppercase">활성 각인</h1>
-                                </div>
+                            <div className="w-full max-w-[1200px] mx-auto bg-[#121213] sm:rounded-2xl border-y sm:border border-white/5 shadow-2xl p-0 sm:p-4">
 
-                                <div className="flex flex-col gap-0.5">
-                                    {(engravings?.ArkPassiveEffects ?? []).map((eng: any, i: number) => {
-                                        const n = typeof eng.Level === "number" ? eng.Level : 0;
-                                        const m = typeof eng.AbilityStoneLevel === "number" ? eng.AbilityStoneLevel : 0;
-                                        const iconUrl = getEngravingIconUrl(eng.Name);
-                                        const stoneIcon = eng.AbilityStoneIcon || FALLBACK_ABILITY_STONE_ICON;
+                                {/* 2. 각인 섹션 컨테이너: 모바일에서 flex-col로 변경 */}
+                                <div
+                                    className="flex flex-col lg:flex-row gap-0 sm:gap-4 h-full w-full"
+                                    onMouseLeave={() => {
+                                        setEngrHoverIdx(null);
+                                        setEngrHoverName(null);
+                                        setEngrHoverDesc("");
+                                    }}
+                                >
+                                    {/* [왼쪽 Section]: 활성 각인 리스트 */}
+                                    <section className="w-full lg:basis-1/2 flex-1 bg-[#1c1c1e]/50 sm:rounded-xl border-b sm:border border-white/5 p-4 shadow-inner min-w-0">
+                                        <div className="flex items-center gap-3 border-b border-zinc-800/50 pb-4 mb-4">
+                                            <div className="w-1.5 h-5 bg-blue-950 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.4)]"></div>
+                                            <h1 className="text-[14px] sm:text-[15px] font-extrabold text-white tracking-tight uppercase">
+                                                활성 각인
+                                            </h1>
+                                        </div>
 
-                                        return (
-                                            <div
-                                                key={i}
-                                                className="relative flex items-center justify-between px-2 py-1 rounded-sm group transition-all duration-200 cursor-default hover:bg-white/[0.02]"
-                                                onMouseEnter={() => {
-                                                    setEngrHoverIdx(i);
-                                                    setEngrHoverName(eng.Name || null);
-                                                    setEngrHoverDesc(eng.Description || "");
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setEngrHoverIdx(null);
-                                                    setEngrHoverName(null);
-                                                    setEngrHoverDesc("");
-                                                }}
-                                            >
-                                                <div className="flex items-center min-w-0">
-                                                    <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden bg-black/60 mr-4 border border-[#3e444d]">
-                                                        <img
-                                                            src={iconUrl}
-                                                            alt={eng.Name}
-                                                            className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
-                                                        />
-                                                    </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            {(engravings?.ArkPassiveEffects ?? []).map((eng, i) => {
+                                                const n = typeof eng.Level === "number" ? eng.Level : 0;
+                                                const m = typeof eng.AbilityStoneLevel === "number" ? eng.AbilityStoneLevel : 0;
+                                                const iconUrl = getEngravingIconUrl(eng.Name);
+                                                const stoneIcon = eng.AbilityStoneIcon || FALLBACK_ABILITY_STONE_ICON;
 
-                                                    <div className="flex items-center gap-1.5 mr-4">
-                                                        <Diamond
-                                                            size={14}
-                                                            className="text-[#f16022] fill-[#f16022] drop-shadow-[0_0_5px_rgba(241,96,34,0.5)]"
-                                                        />
-                                                        <span className="text-[#a8a8a8] text-sm font-medium">x</span>
-                                                        <span className="text-white text-base font-bold leading-none tabular-nums">{n}</span>
-                                                    </div>
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        className={`flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 cursor-pointer border
+                            ${engrHoverIdx === i ? 'bg-white/10 border-white/10 shadow-md' : 'bg-transparent border-transparent hover:bg-white/[0.03]'}`}
+                                                        /* 모바일 사용성을 위해 클릭 시에도 상태가 변경되도록 onClick 추가 가능 */
+                                                        onMouseEnter={() => {
+                                                            setEngrHoverIdx(i);
+                                                            setEngrHoverName(eng.Name || null);
+                                                            setEngrHoverDesc(eng.Description || "");
+                                                        }}
+                                                        onClick={() => {
+                                                            setEngrHoverIdx(i);
+                                                            setEngrHoverName(eng.Name || null);
+                                                            setEngrHoverDesc(eng.Description || "");
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center min-w-0 gap-3">
+                                                            <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full overflow-hidden bg-black/60 border border-zinc-700">
+                                                                <img src={iconUrl} alt={eng.Name} className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <div className="flex items-center gap-1 px-1 py-1 rounded-md shrink-0">
+                                                                <Diamond
+                                                                    size={12}
+                                                                    className="text-[#f16022] fill-[#f16022]"
+                                                                />
+                                                                <div className="flex items-baseline gap-0.5">
+                                                                    <span className="text-zinc-500 text-[9px] font-bold uppercase">X</span>
+                                                                    <span className="text-white text-[14px] sm:text-[15px] font-black tabular-nums">{n}</span>
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-[#efeff0] font-bold text-[13px] sm:text-[14px] truncate">{eng.Name}</span>
+                                                        </div>
 
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="relative min-w-0">
-                                                            <span className="text-[#efeff0] font-bold text-[14px] tracking-tight truncate">{eng.Name}</span>
-
-                                                            {engrHoverIdx === i && engrHoverDesc && (
-                                                                <div
-                                                                    className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-[9999]"
-                                                                    onMouseEnter={() => setEngrHoverIdx(i)}
-                                                                    onMouseLeave={() => {
-                                                                        setEngrHoverIdx(null);
-                                                                        setEngrHoverName(null);
-                                                                        setEngrHoverDesc("");
-                                                                    }}
-                                                                >
-                                                                    <div className="w-[380px] max-w-[60vw] rounded-xl border border-white/10 bg-[#0b0c10]/95 shadow-2xl backdrop-blur-md p-4 animate-in fade-in zoom-in-95 duration-150">
-                                                                        <div className="flex items-start gap-3">
-                                                                            <div className="w-9 h-9 rounded-lg overflow-hidden border border-white/10 bg-black/40 shrink-0">
-                                                                                <img src={iconUrl} alt="" className="w-full h-full object-cover" />
-                                                                            </div>
-                                                                            <div className="min-w-0">
-                                                                                <div className="text-[13px] font-black text-white mb-1 truncate">{engrHoverName}</div>
-                                                                                <div
-                                                                                    className="text-[12px] leading-relaxed text-zinc-200"
-                                                                                    dangerouslySetInnerHTML={{
-                                                                                        __html: engravingDescToHtml(engrHoverDesc),
-                                                                                    }}
-                                                                                />
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
+                                                        <div className="flex items-center gap-4 shrink-0">
+                                                            {m > 0 && (
+                                                                <div className="flex items-center gap-1">
+                                                                    <img src={stoneIcon} alt="Stone" className="w-3.5 h-4.5 brightness-125" />
+                                                                    <span className="text-zinc-400 text-[8px] font-bold uppercase">Lv.</span>
+                                                                    <span className="text-[#00ccff] text-[13px] sm:text-[14px] font-black">{m}</span>
                                                                 </div>
                                                             )}
                                                         </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
 
-                                                        {m > 0 && (
-                                                            <div className="flex items-center gap-1.5 ml-2">
-                                                                <img src={stoneIcon} alt="Stone" className="w-4 h-5 object-contain brightness-125" />
-                                                                <div className="flex items-baseline gap-0.5">
-                                                                    <span className="text-[#5e666f] text-[11px] font-bold">Lv.</span>
-                                                                    <span className="text-[#00ccff] text-[17px] font-black">{m}</span>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                    {/* [오른쪽 Section]: 상세 설명 (모바일에서는 리스트 아래에 표시) */}
+                                    <section className={`w-full lg:basis-1/2 flex-1 bg-[#1c1c1e]/50 sm:rounded-xl border-b sm:border border-white/5 p-4 min-h-[120px] lg:min-h-[400px] flex flex-col min-w-0 ${!engrHoverName && 'hidden lg:flex'}`}>
+                                        {engrHoverName ? (
+                                            <div className="animate-in fade-in zoom-in-95 duration-200">
+                                                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/5">
+                                                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border border-white/10 bg-black/60 shadow-2xl shrink-0">
+                                                        <img src={getEngravingIconUrl(engrHoverName)} alt="" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-blue-400 text-[9px] font-black uppercase tracking-widest mb-0.5">각인 효과</div>
+                                                        <h2 className="text-base sm:text-lg font-black text-white tracking-tight leading-tight">{engrHoverName}</h2>
                                                     </div>
                                                 </div>
+
+                                                <div
+                                                    className="text-[13px] sm:text-[14px] leading-snug text-zinc-300 bg-black/30 p-4 rounded-xl border border-white/5 shadow-inner"
+                                                    dangerouslySetInnerHTML={{ __html: engravingDescToHtml(engrHoverDesc) }}
+                                                />
                                             </div>
-                                        );
-                                    })}
+                                        ) : (
+                                            <div className="my-auto flex flex-col items-center justify-center space-y-2 opacity-20">
+                                                <div className="w-10 h-10 rounded-full border border-dashed border-white flex items-center justify-center text-lg font-bold text-white">?</div>
+                                                <p className="text-xs font-medium text-white tracking-tight text-center">각인을 선택하여 상세 내용을 확인하세요</p>
+                                            </div>
+                                        )}
+                                    </section>
                                 </div>
-                            </section>
+                            </div>
                         </div>
                     </div>
                 );

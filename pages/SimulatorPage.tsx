@@ -21,6 +21,33 @@ export const SimulatorPage: React.FC = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
+    //장비 Post 요청
+    const [equipmentStates, setEquipmentStates] = useState<Record<string, any>>({});
+    //악세사리 Post 요청
+    const [accessoryStates, setAccessoryStates] = useState<Record<string, any>>({});
+
+    // 장비 업데이트 핸들러
+    const handleEquipmentUpdate = useCallback((partName: string, data: any) => {
+        setEquipmentStates(prev => {
+            // 현재 값과 새로운 값이 완전히 같으면 상태를 업데이트하지 않음 (무한 루프 방지)
+            if (JSON.stringify(prev[partName]) === JSON.stringify(data)) {
+                return prev;
+            }
+            return {
+                ...prev,
+                [partName]: data
+            };
+        });
+    }, []); // 의존성 배열을 비워둡니다.
+    // 악세사리 업데이트 핸들러
+    const handleAccessoryUpdate = useCallback((partName: string, data: any) => {
+        setAccessoryStates(prev => ({
+            ...prev,
+            [partName]: data
+        }));
+    }, []);
+
+
     // ✅ [추가] 백엔드 콘솔 확인용 Bulk 요청 로직
     const sendBulkRequest = useCallback(async () => {
         if (!nameParam) return;
@@ -62,9 +89,38 @@ export const SimulatorPage: React.FC = () => {
     };
 
     // ✅ [수정] 시뮬레이션 실행 핸들러
-    const handleRunSimulation = () => {
+    const handleRunSimulation = async () => {
         setTab("result");
-        sendBulkRequest();
+
+        if (!nameParam) return;
+
+        try {
+            // 1. 요청 바디 데이터 구성
+            const requestBody = {
+                characterName: nameParam,
+                equipment: equipmentStates // 객체 그대로 전달
+            };
+
+            // 2. POST 요청 발송
+            const response = await fetch(`simulatorEquipments`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestBody), // 데이터를 문자열화하여 전송
+            });
+            console.log(response);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log("시뮬레이션 결과:", result);
+                // 결과 데이터를 상태에 저장하여 "result" 탭에서 보여주는 로직 추가
+            } else {
+                console.error("서버 응답 에러:", response.status);
+            }
+        } catch (e) {
+            console.error("Simulation request failed", e);
+        }
     };
 
     const shouldShowEmpty = useMemo(() => {
@@ -171,7 +227,7 @@ export const SimulatorPage: React.FC = () => {
 
             <main className="flex-1 min-w-0">
                 <div className="bg-zinc-900/40 rounded-[2.5rem] border border-zinc-800/30 p-1 min-h-[600px]">
-                    <Simulator character={character} activeTab={tab} />
+                    <Simulator character={character} activeTab={tab} onEquipmentUpdate={handleEquipmentUpdate} />
                 </div>
             </main>
         </div>

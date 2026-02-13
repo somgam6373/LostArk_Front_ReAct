@@ -397,7 +397,7 @@ export const CombatTab = ({ character }: { character: any }) => {
                                                     <img src={item.Icon} className="w-9 h-9 sm:w-10 sm:h-10 rounded-md object-cover bg-black/20" alt={itemName} />
                                                 </div>
                                                 {quality !== -1 && (
-                                                    <div className={`absolute -bottom-1 -right-1 px-1 rounded-md text-[9px] font-black border ${getQualityColor(quality)} bg-zinc-900 text-[#e9d2a6]`}>
+                                                    <div className={`absolute -bottom-1 -right-1 px-1 rounded-md text-[10px] font-black border ${getQualityColor(quality)} bg-zinc-900 text-[#e9d2a6]`}>
                                                         {quality}
                                                     </div>
                                                 )}
@@ -410,14 +410,14 @@ export const CombatTab = ({ character }: { character: any }) => {
                                                 )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h3 className={`font-bold text-[11px] sm:text-[12px] truncate ${theme.text}`}>{itemName}</h3>
+                                                <h3 className={`font-bold text-[11px] sm:text-[13px] truncate ${theme.text}`}>{itemName}</h3>
                                                 <div className="flex items-center gap-2">
                                                     {isStone ? (
-                                                        <span className="text-blue-400 text-[10px] font-bold">세공 {stoneStats}</span>
+                                                        <span className="text-blue-400 text-[11px] font-bold">세공 {stoneStats}</span>
                                                     ) : (
                                                         <>
-                                                            <span className="text-white/50 text-[10px]">재련 {reinforceLevel}</span>
-                                                            {advancedReinforce !== "0" && <span className="text-sky-400 text-[10px] font-bold">상재 +{advancedReinforce}</span>}
+                                                            <span className="text-white/50 text-[11px]">재련 {reinforceLevel}</span>
+                                                            {advancedReinforce !== "0" && <span className="text-sky-400 text-[11px] font-bold">상재 +{advancedReinforce}</span>}
                                                         </>
                                                     )}
                                                 </div>
@@ -523,8 +523,8 @@ export const CombatTab = ({ character }: { character: any }) => {
 
                                             {/* 중앙: 정보 영역 */}
                                             <div className="flex-1 min-w-0">
-                                                <h3 className={`font-bold text-[11px] sm:text-[12px] truncate ${theme.text}`}>{itemName}</h3>
-                                                <div className="flex gap-1.5 text-[10px]">
+                                                <h3 className={`font-bold text-[11px] sm:text-[13px] truncate ${theme.text}`}>{itemName}</h3>
+                                                <div className="flex gap-1.5 text-[11px]">
                                                     <span className="text-orange-400 font-bold">깨달음 +{passive}</span>
                                                     <span className="text-white/80">{tier}T</span>
                                                 </div>
@@ -540,7 +540,7 @@ export const CombatTab = ({ character }: { character: any }) => {
 
                                                     const getDynamicColor = (name, valueStr) => {
                                                         if (valueStr === '-' || !valueStr) return 'text-white/20';
-                                                        if (isBracelet && (name === '특화' || name === '치명')) return 'text-red-500 font-black';
+                                                        if (isBracelet && (name === '특화' || name === '치명')) return 'text-white-500 font-black';
                                                         const num = parseFloat(valueStr.replace(/[^0-9.]/g, ''));
                                                         const isPercent = valueStr.includes('%');
                                                         const thresholds = {
@@ -576,7 +576,7 @@ export const CombatTab = ({ character }: { character: any }) => {
                                                     };
 
                                                     return (
-                                                        <div key={idx} className="flex justify-between w-full text-[11px] font-semi-bold leading-tight items-center">
+                                                        <div key={idx} className="flex justify-between w-full text-[12px] font-semi-bold leading-tight items-center">
                                                             <span className="text-white/40 truncate shrink mr-1">{dispName}</span>
                                                             <span className={`${getDynamicColor(rawName, val)} whitespace-nowrap shrink-0`}>{val}</span>
                                                         </div>

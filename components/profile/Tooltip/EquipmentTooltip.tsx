@@ -90,10 +90,19 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
         elements.filter(el => el?.type === 'SingleTextBox' && keywords.some(k => String(el.value).includes(k)))
             .map(el => cleanText(el.value));
 
+    const durabilityElement = elements.find(el =>
+        el?.type === "ShowMeTheMoney" && String(el?.value).includes("내구도")
+    );
+
     const baseEffect = findByTitle('기본 효과');
+    const durability = durabilityElement ? cleanText(durabilityElement.value).split('|')[0] : null;
     const addEffect = findByTitle('추가 효과');
     const arkPassive = findByTitle('아크 패시브 포인트');
-    const advRefine = elements.find(el => String(el?.value).includes('[상급 재련]'))?.value;
+// 상급 재련 데이터 찾기 및 첫 줄만 추출
+    const advRefineRaw = elements.find(el => el && String(el.value).includes('[상급 재련]'))?.value;
+    const advRefine = advRefineRaw ? cleanText(advRefineRaw).split('\n')[0] : null;
+
+// 결과 예시: "[상급 재련] 40단계"
     const engraveGroup = elements.find(el => el?.type === 'IndentStringGroup')?.value?.Element_000;
     const bottomInfos = findSingleText(['느낌이 난다', '내구도', '[제작]', '판매불가', '분해불가']);
 
@@ -102,9 +111,9 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
         '고급': { bg: 'from-[#1a2e1a]/40', border: 'border-[#48c948]/30', text: 'text-[#48c948]' },
         '희귀': { bg: 'from-[#1a2a3e]/40', border: 'border-[#00b0fa]/30', text: 'text-[#00b0fa]' },
         '영웅': { bg: 'from-[#2e1a3e]/40', border: 'border-[#ce43fb]/30', text: 'text-[#ce43fb]' },
-        '전설': { bg: 'from-[#41321a]/40', border: 'border-[#f99200]/30', text: 'text-[#f99200]' },
-        '유물': { bg: 'from-[#2a1a12]/40', border: 'border-[#a6632d]/50', text: 'text-[#e7a15d]', glow: 'shadow-[#a6632d]/20' },
-        '고대': { bg: 'from-[#3d3325]/40', border: 'border-[#e9d2a6]/30', text: 'text-[#c69c6d]', glow: 'shadow-[#e9d2a6]/10' },
+        '고대': { bg: 'from-[#3d3325] to-transparent', text: 'text-[#d6aa71]', border: 'border-[#d6aa71]/50' },
+        '유물': { bg: 'from-[#2a1a12]/60 to-transparent', text: 'text-[#e7a15d]', border: 'border-[#a6632d]/40' },
+        '전설': { bg: 'from-[#362e15]/60 to-transparent', text: 'text-[#f9ae00]', border: 'border-[#f9ae00]/30' },
         '에스더': { bg: 'from-[#0d2e2e]/40', border: 'border-[#2edbd3]/60', text: 'text-[#2edbd3]', glow: 'shadow-[#2edbd3]/30' }
     };
     const theme = themes[gradeName] || themes['고대'];
@@ -117,12 +126,12 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
                 left: coords.left,
                 maxHeight: coords.maxHeight,
                 position: 'fixed',
-                width: '420px', // PC 너비 확장
+                width: '300px', // PC 너비 확장
                 visibility: coords.isReady ? 'visible' : 'hidden',
                 opacity: coords.isReady ? 1 : 0
             } : {}}
             className={`${isMobile ? 'w-full max-h-[80vh] rounded-t-2xl pb-6' : 'rounded-xl'}
-                z-[9999] overflow-y-auto bg-[#0d0d0f]/90 backdrop-blur-xl border-t border-x border-white/10 shadow-2xl
+                z-[9999] overflow-y-auto bg-[#0d0d0f]/10 backdrop-blur-xl border-t border-x border-white/10 shadow-2xl
                 ${theme.glow} font-sans ${className} transition-opacity duration-300`}
         >
             {/* 드래그 핸들 (모바일 전용) */}
@@ -133,14 +142,21 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
             )}
 
             {/* 헤더 */}
-            <div className={`px-4 py-3 bg-gradient-to-br ${theme.bg} to-transparent border-b border-white/5 sticky top-0 z-10 backdrop-blur-md`}>
+            <div className={`p-2 shrink-0 bg-[#111111] bg-gradient-to-br ${theme.bg} border-b border-white/10 z-10`}>
                 <div className="flex gap-3 items-center">
-                    <div className={`w-11 h-11 shrink-0 rounded border ${theme.border} bg-black/40 p-1`}>
-                        <img src={itemIcon} className="w-full h-full object-contain" alt="" />
+                    <div className="relative shrink-0 w-[50px] h-[50px]">
+                        {/* 부모 div에 theme.bg를 추가하고, 이미지는 투명 배경을 고려해 삽입합니다 */}
+                        <div className={`w-full h-full overflow-hidden rounded-md border-[1.5px] ${theme.border} bg-black bg-gradient-to-br ${theme.bg}`}>
+                            <img
+                                src={itemIcon}
+                                className="w-full h-full object-cover"
+                                alt=""
+                            />
+                        </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <h4 className={`text-[13px] font-bold truncate ${theme.text}`}>{itemName}</h4>
-                        <div className="text-[11px] text-white/50">{itemGrade}</div>
+                        <h4 className={`text-[14px] font-bold truncate ${theme.text}`}>{itemName}</h4>
+                        <div className="text-[12px] text-white/50">{itemGrade}</div>
                     </div>
                 </div>
                 {isMobile && (
@@ -151,53 +167,56 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
             </div>
 
             {/* 본문: PC/모바일 공통 좌우 레이아웃 */}
-            <div className="p-4 grid grid-cols-2 gap-x-5 gap-y-4">
+            <div className="p-3 grid grid-cols-2 gap-x-5 gap-y-4 bg-[#111111]/10 backdrop-blur-md">
 
                 {/* 왼쪽 컬럼: 기본 정보 및 수치 */}
                 <div className="space-y-4 col-span-1 border-r border-white/5 pr-4">
-                    <div className="text-[11px] leading-tight">
+                    <div className="text-[11.5px] leading-tight">
                         <div className="text-white font-bold">{itemLevelAndTier}</div>
-                        {advRefine && <div className="text-[#ffcf4d] font-semibold mt-1">{cleanText(advRefine)}</div>}
+                        {advRefine && (
+                            <div className="text-[#ffcf4d] font-semibold mt-1 flex items-center gap-1">
+                                {advRefine}
+                            </div>
+                        )}
                     </div>
-
-                    {quality !== -1 && (
-                        <div className="space-y-1.5">
-                            <div className="flex justify-between text-[10px] font-bold text-white/30 uppercase tracking-tight">
-                                <span>품질 {quality}</span>
-                            </div>
-                            <div className="h-1 bg-black/60 rounded-full overflow-hidden">
-                                <div className="h-full transition-all duration-700" style={{ width: `${quality}%`, backgroundColor: quality === 100 ? '#FF8000' : quality >= 90 ? '#CE43FB' : '#00B0FA' }} />
-                            </div>
-                        </div>
-                    )}
 
                     {baseEffect && (
                         <div className="space-y-1">
-                            <p className="text-white/20 text-[10px] font-bold uppercase tracking-tight">[기본 효과]</p>
-                            <p className="text-white/80 text-[11px] whitespace-pre-line leading-relaxed font-medium">{cleanText(baseEffect)}</p>
+                            <p className="text-white/60 text-[11px] font-bold uppercase tracking-tight">[기본 효과]</p>
+                            <p className="text-white/90 text-[11px] whitespace-pre-line leading-relaxed font-medium">{cleanText(baseEffect)}</p>
                         </div>
                     )}
                 </div>
 
                 {/* 오른쪽 컬럼: 추가 효과 및 각인 */}
-                <div className="space-y-4 col-span-1">
+                <div className="space-y-1.5 col-span-1 w-28">
+                    {quality !== -1 && (
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between text-[11px] font-bold text-white/90 uppercase tracking-tight">
+                                <span>품질 {quality}</span>
+                            </div>
+                            <div className="h-1 bg-white/40 rounded-full overflow-hidden">
+                                    <div className="h-full transition-all duration-700" style={{ width: `${quality}%`, backgroundColor: quality === 100 ? '#FF8000' : quality >= 90 ? '#CE43FB' : '#00B0FA' }} />
+                            </div>
+                        </div>
+                    )}
                     {addEffect && (
-                        <div className="space-y-1">
-                            <p className="text-white/20 text-[10px] font-bold uppercase tracking-tight">[추가 효과]</p>
-                            <p className="text-[#4cdfff] text-[11px] font-semibold leading-relaxed">{cleanText(addEffect)}</p>
+                        <div className="space-y-0">
+                            <p className="text-white/30 text-[11px] font-bold uppercase tracking-tight">[추가 효과]</p>
+                            <p className="text-white/90 text-[11px] font-semibold leading-relaxed">{cleanText(addEffect)}</p>
                         </div>
                     )}
 
                     {arkPassive && (
-                        <div className="space-y-1">
-                            <p className="text-emerald-400/40 text-[10px] font-bold uppercase tracking-tight">[아크 패시브]</p>
-                            <p className="text-emerald-400 text-[11px] font-bold leading-tight">{cleanText(arkPassive)}</p>
+                        <div className="space-y-0y-1">
+                            <p className="text-white/30  text-[11px] font-bold uppercase tracking-tight">[아크 패시브]</p>
+                            <p className="text-white/90 text-[11px] font-bold leading-tight">{cleanText(arkPassive)}</p>
                         </div>
                     )}
 
                     {engraveGroup && (
-                        <div className="space-y-1.5">
-                            <p className="text-[#A9D0F5]/40 text-[10px] font-bold uppercase tracking-tight">[{cleanText(engraveGroup.topStr)}]</p>
+                        <div className="space-y-0.5">
+                            <p className="text-[#A9D0F5]/40 text-[11px] font-bold uppercase tracking-tight">[{cleanText(engraveGroup.topStr)}]</p>
                             <div className="space-y-1">
                                 {Object.values(engraveGroup.contentStr).map((c: any, i: number) => {
                                     const t = cleanText(c.contentStr);
@@ -207,13 +226,20 @@ const EquipmentTooltip = ({ data, className = "", onClose }: TooltipProps) => {
                             </div>
                         </div>
                     )}
+
+                    {durability && (
+                        <div className="space-y-0">
+                            <p className="text-white/30 text-[11px] font-bold uppercase tracking-tight">[내구도]</p>
+                            <p className="text-white/90 text-[11px] whitespace-pre-line leading-relaxed font-medium">{cleanText(durability)}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* 하단 정보: 전체 너비 사용 */}
                 {bottomInfos.length > 0 && (
                     <div className="pt-3 border-t border-white/5 space-y-1 col-span-2">
                         {bottomInfos.map((info, i) => (
-                            <p key={i} className="text-[10px] text-white/30 leading-tight italic">{info}</p>
+                            <p key={i} className="text-[10.5px] text-white/60 leading-tight">{info}</p>
                         ))}
                     </div>
                 )}
