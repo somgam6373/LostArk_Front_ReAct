@@ -277,32 +277,30 @@ const EquipmentItem = ({
 
     // ✅ 추가: 값이 변경될 때마다 부모(Simulator)로 데이터 전달
     useEffect(() => {
+        if (!onUpdate) return;
+
         onUpdate(itemName, {
             quality: Number(localQuality),
-            level: selectedOption.value,
-            tier: selectedOption.tier,
+            level: Number(selectedOption.value),
+            tier: Number(selectedOption.tier),
             advancedReinforce: Number(localAdv)
         });
-    }, [localQuality, localAdv, selectedOption, itemName, onUpdate]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [localQuality, localAdv, selectedOption.value, selectedOption.tier, itemName]);
+    // ↑ onUpdate를 의존성에서 빼거나 useCallback으로 감싸져 있어야 무한루프를 안 돕니다.
 
+    // ✅ 2. 외부 props(검색 결과)가 변경될 때만 로컬 상태를 동기화
+    // 사용자가 입력 중일 때는 영향을 주지 않도록 로직을 분리합니다.
     useEffect(() => {
         const level = reinforceLevel.replace("+", "");
         const found = REINFORCE_OPTIONS.find((opt: any) => String(opt.value) === level);
 
         if (found) {
-            // 현재 로컬 상태와 부모의 원본 props가 다를 때만 업데이트 (덮어쓰기 방지)
-            // 만약 사용자가 수정한 상태라면 이 조건문은 실행되지 않습니다.
-            setLocalQuality((prev: any) => (prev !== quality ? quality : prev));
-            setLocalAdv((prev: any) => (prev !== advancedReinforce ? advancedReinforce : prev));
-
-            setSelectedOption((prev: any) => {
-                if (prev.value === found.value && prev.tier === found.tier) return prev;
-                return found;
-            });
+            setLocalQuality(quality);
+            setLocalAdv(advancedReinforce);
+            setSelectedOption(found);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reinforceLevel, quality, advancedReinforce]);
-// REINFORCE_OPTIONS는 배열이므로 의존성에 넣으면 매번 실행될 수 있어 제외하거나 useMemo 처리가 필요합니다.
+    }, [quality, reinforceLevel, advancedReinforce]);
 
     const handleKeyDown = (e: any) => {
         if (e.key === "Enter") e.currentTarget.blur();

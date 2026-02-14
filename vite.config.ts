@@ -101,6 +101,16 @@ export default defineConfig(({ mode }) => {
             changeOrigin: true,
             secure: false,
           },
+          '/simulatorEquipments': {
+            target: 'http://localhost:8080',
+            changeOrigin: true,
+            secure: false,
+          },
+          '/simulatorAccessories': {
+            target: 'http://localhost:8080',
+            changeOrigin: true,
+            secure: false,
+          },
         },
       },
       plugins: [react()],

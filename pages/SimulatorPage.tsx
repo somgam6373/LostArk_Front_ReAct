@@ -10,6 +10,38 @@ type CharacterLike = any;
 
 const BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL ?? "http://localhost:8080";
 
+
+// --- [데이터 상수 정의] ---
+const BASIC_WEAPON_ATTACK: Record<number, number> = {
+    10: 111701, 11: 117112, 12: 122623, 13: 127934, 14: 133345,
+    15: 138756, 16: 139730, 17: 140703, 18: 141678, 19: 142652, 20: 143626
+};
+
+const getAdditionalDamage = (quality: number): number => {
+    if (quality >= 100) return 30.00;
+    if (quality >= 95) return 28.05;
+    if (quality >= 90) return 26.20;
+    if (quality >= 85) return 24.45;
+    if (quality >= 80) return 22.80;
+    if (quality >= 75) return 21.25;
+    if (quality >= 70) return 19.85;
+    if (quality >= 65) return 18.45;
+    if (quality >= 60) return 17.20;
+    if (quality >= 55) return 16.05;
+    if (quality >= 50) return 15.00;
+    if (quality >= 45) return 14.05;
+    if (quality >= 40) return 13.20;
+    if (quality >= 35) return 12.45;
+    if (quality >= 30) return 11.80;
+    if (quality >= 25) return 11.25;
+    if (quality >= 20) return 10.80;
+    if (quality >= 15) return 10.45;
+    if (quality >= 10) return 10.20;
+    if (quality >= 5) return 10.05;
+    return 10.00;
+};
+
+
 export const SimulatorPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
@@ -39,11 +71,15 @@ export const SimulatorPage: React.FC = () => {
             };
         });
     }, []); // 의존성 배열을 비워둡니다.
+
     // 악세사리 업데이트 핸들러
     const handleAccessoryUpdate = useCallback((partName: string, data: any) => {
         setAccessoryStates(prev => ({
             ...prev,
-            [partName]: data
+            [partName]: {
+                ...(prev[partName] || {}),
+                ...data
+            }
         }));
     }, []);
 
@@ -88,36 +124,73 @@ export const SimulatorPage: React.FC = () => {
         }
     };
 
-    // ✅ [수정] 시뮬레이션 실행 핸들러
+// --- [계산 로직: 무기 공격력 및 기본 공격력] ---
+// SimulatorPage.tsx 내부
+
+    const getCalculatedWeaponInfo = (currentEquipment: Record<string, any>) => {
+        // 💡 중요: 인자로 받은 currentEquipment 사용
+        const weapon = currentEquipment["무기"];
+        if (!weapon || !character) return null;
+
+        // 1. 숫자 형변환 강제 및 기본값 설정
+        const n = Number(weapon.advancedReinforce) || 0;
+        const level = Number(weapon.level) || 0;
+        const quality = Number(weapon.quality) || 0;
+
+        // 2. 상급 재련 추가 무공
+        let advAttack = 0;
+        if (n <= 20) advAttack = 480 * n;
+        else if (n <= 40) advAttack = 9680 + (720 * (n - 20));
+
+        // 3. 무기 공격력 합계
+        const weaponAttack = (BASIC_WEAPON_ATTACK[level] || 0) + advAttack;
+
+        // 4. 추가 피해 (품질)
+        const additionalDamage = getAdditionalDamage(quality);
+
+        // 5. 기본 공격력 계산 (스탯 콤마 제거 로직 추가)
+        const statValue = character.Stats?.find((s: any) => ["힘", "민첩", "지능"].includes(s.Type))?.Value || "0";
+        const mainStat = Number(statValue.toString().replace(/,/g, ""));
+
+        let bonusMultiplier = 1.0;
+        if (n >= 40) bonusMultiplier = 1.03;
+        else if (n >= 30) bonusMultiplier = 1.02;
+
+        const baseAttack = Math.round(Math.sqrt((mainStat * weaponAttack) / 6) * bonusMultiplier);
+
+        return { weaponAttack, additionalDamage, baseAttack };
+    };
+
     const handleRunSimulation = async () => {
         setTab("result");
-
         if (!nameParam) return;
 
+        const weaponInfo = getCalculatedWeaponInfo(equipmentStates);
+
+        // 콘솔에서 수정된 값이 반영되었는지 확인해보세요
+        console.log("전송될 무기 정보:", weaponInfo);
         try {
-            // 1. 요청 바디 데이터 구성
-            const requestBody = {
-                characterName: nameParam,
-                equipment: equipmentStates // 객체 그대로 전달
-            };
-
-            // 2. POST 요청 발송
-            const response = await fetch(`simulatorEquipments`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(requestBody), // 데이터를 문자열화하여 전송
-            });
-            console.log(response);
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log("시뮬레이션 결과:", result);
-                // 결과 데이터를 상태에 저장하여 "result" 탭에서 보여주는 로직 추가
-            } else {
-                console.error("서버 응답 에러:", response.status);
-            }
+            // 장비 정보와 악세사리 정보를 각각의 엔드포인트로 전송
+            await Promise.all([
+                fetch(`/simulatorEquipments`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        calculatedWeapon: weaponInfo // 최신 계산 결과
+                    }),
+                }),
+                fetch(`/simulatorAccessories`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        characterName: nameParam,
+                        accessories: accessoryStates
+                    }),
+                })
+            ]);
+            console.log("시뮬레이션 요청 완료");
+            console.log(accessoryStates);
+            console.log(weaponInfo);
         } catch (e) {
             console.error("Simulation request failed", e);
         }
@@ -227,7 +300,13 @@ export const SimulatorPage: React.FC = () => {
 
             <main className="flex-1 min-w-0">
                 <div className="bg-zinc-900/40 rounded-[2.5rem] border border-zinc-800/30 p-1 min-h-[600px]">
-                    <Simulator character={character} activeTab={tab} onEquipmentUpdate={handleEquipmentUpdate} />
+                    <Simulator
+                        character={character}
+                        activeTab={tab}
+                        onEquipmentUpdate={handleEquipmentUpdate}
+                        onAccessoryUpdate={handleAccessoryUpdate} // ✅ 핸들러 연결
+                        accessoryStates={accessoryStates} // ✅ 현재 상태 전달
+                    />
                 </div>
             </main>
         </div>
